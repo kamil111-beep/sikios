@@ -1,7 +1,7 @@
 const pool = require('../config/database');
 
 /**
- * Controller untuk menangani Transaksi Penjualan / Kasir
+ * Controller untuk menangani Transaksi Penjualan / Kasir (SINKRON WIB / UTC+7)
  */
 exports.createSale = async (req, res) => {
     const connection = await pool.getConnection();
@@ -68,10 +68,10 @@ exports.createSale = async (req, res) => {
 
         const invoice_number = `INV-${Date.now()}`;
 
-        // 3. Simpan ke tabel `sales`
+        // 3. Simpan ke tabel `sales` dengan jam WIB (UTC+7)
         const [saleResult] = await connection.query(
             `INSERT INTO sales (user_id, customer_id, invoice_number, total_amount, paid_amount, change_amount, payment_method, transaction_date) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
+             VALUES (?, ?, ?, ?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
             [userId, customer_id || null, invoice_number, total_amount, paid, change_amount || 0, payment_method || 'Tunai']
         );
 
@@ -91,13 +91,13 @@ exports.createSale = async (req, res) => {
             );
         }
 
-        // 5. Catat Arus Kas Masuk (Pastikan Nilai 'Masuk' & Nominal Positif)
+        // 5. Catat Arus Kas Masuk dengan jam WIB (UTC+7)
         if (payment_method !== 'Piutang') {
             const absAmount = Math.abs(total_amount); // Memastikan angka selalu positif
             
-            // Simpan ke tabel cash_flows
             await connection.query(
-                `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Masuk', ?, ?, NOW())`,
+                `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
+                 VALUES (?, 'Masuk', ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
                 [userId, absAmount, `Penjualan Invoice ${invoice_number}`]
             );
         } else {
