@@ -9,7 +9,7 @@ exports.createSale = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 🟢 Ambil user_id dari sesi login secara aman
+        // 1. Ambil user_id dari sesi login yang sedang aktif
         const userId = req.session && req.session.user ? req.session.user.id : null;
         if (!userId) {
             throw new Error('Sesi login kedaluwarsa atau tidak valid. Silakan login kembali.');
@@ -24,7 +24,7 @@ exports.createSale = async (req, res) => {
         let total_amount = 0;
         const processedItems = [];
 
-        // 1. Loop validasi barang & kunci harga modal (purchase_price)
+        // 2. Loop validasi barang & hitung subtotal
         for (let item of items) {
             const [rows] = await connection.query(
                 'SELECT id, name, purchase_price, selling_price, stock FROM products WHERE id = ? AND user_id = ? FOR UPDATE',
@@ -68,7 +68,7 @@ exports.createSale = async (req, res) => {
 
         const invoice_number = `INV-${Date.now()}`;
 
-        // 2. Insert ke tabel `sales`
+        // 3. Simpan ke tabel `sales`
         const [saleResult] = await connection.query(
             `INSERT INTO sales (user_id, customer_id, invoice_number, total_amount, paid_amount, change_amount, payment_method, transaction_date) 
              VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
@@ -77,7 +77,7 @@ exports.createSale = async (req, res) => {
 
         const saleId = saleResult.insertId;
 
-        // 3. Insert Detail Barang & Potong Stok
+        // 4. Simpan detail barang & potong stok
         for (let item of processedItems) {
             await connection.query(
                 `INSERT INTO sale_details (sale_id, product_id, quantity, purchase_price, selling_price, subtotal) 
@@ -91,12 +91,14 @@ exports.createSale = async (req, res) => {
             );
         }
 
-        // 4. Catat ke Buku Kas atau Piutang
+        // 5. Catat Arus Kas Masuk (Pastikan Nilai 'Masuk' & Nominal Positif)
         if (payment_method !== 'Piutang') {
-            // 🟢 TERHUBUNG PERSIS ENUM DATABASE: 'Masuk'
+            const absAmount = Math.abs(total_amount); // Memastikan angka selalu positif
+            
+            // Simpan ke tabel cash_flows
             await connection.query(
-                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'Masuk', ?, ?)`,
-                [userId, total_amount, `Penjualan Invoice ${invoice_number}`]
+                `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Masuk', ?, ?, NOW())`,
+                [userId, absAmount, `Penjualan Invoice ${invoice_number}`]
             );
         } else {
             if (!customer_id) {
