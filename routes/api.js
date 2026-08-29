@@ -14,7 +14,7 @@ const debtController = require('../controllers/debtController');
 const receivableController = require('../controllers/receivableController');
 const reportController = require('../controllers/reportController');
 
-// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login sebelum mengakses API (DIPERBAIKI)
+// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login sebelum mengakses API
 const requireAuthApi = async (req, res, next) => {
     try {
         if (req.session && req.session.user && req.session.user.id) {
@@ -344,20 +344,24 @@ router.post('/reports/reset', requireAuthApi, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT BUKU KAS (CASH FLOW)
+// ENDPOINT BUKU KAS (CASH FLOW) - HARIAN & KALENDER (DIPERBAIKI)
 // ==========================================
 
 router.get('/cash-flow', requireAuthApi, async (req, res) => {
     try {
         const { date } = req.query;
         const userId = req.session.user.id;
+        
+        // Ambil tanggal target (YYYY-MM-DD). Jika tidak ada parameter date, gunakan tanggal server saat ini
         const targetDate = date || new Date().toISOString().split('T')[0];
 
+        // Query fleksibel membaca transaction_date ATAU created_at agar tidak terlewat
         const [rows] = await db.query(
             `SELECT * FROM cash_flows 
-             WHERE user_id = ? AND DATE(COALESCE(transaction_date, created_at)) = ? 
+             WHERE user_id = ? 
+             AND (DATE(transaction_date) = ? OR (transaction_date IS NULL AND DATE(created_at) = ?))
              ORDER BY id DESC`,
-            [userId, targetDate]
+            [userId, targetDate, targetDate]
         );
         
         let totalIncome = 0;
@@ -367,6 +371,7 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
             const amount = parseFloat(item.amount) || 0;
             const typeStr = String(item.type || '').trim().toLowerCase();
 
+            // Deteksi tipe pengeluaran ('Keluar', 'out', 'pengeluaran') atau jika amount bernilai negatif
             if (typeStr === 'out' || typeStr === 'keluar' || typeStr === 'pengeluaran' || amount < 0) {
                 totalExpense += Math.abs(amount);
             } else {
@@ -376,7 +381,7 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
 
         let totalBalance = totalIncome - totalExpense;
 
-        res.json({ 
+        return res.json({ 
             success: true, 
             selected_date: targetDate,
             data: rows, 
@@ -386,7 +391,10 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetch cash-flow:', error);
-        res.status(500).json({ success: false, message: 'Gagal mengambil data kas: ' + error.message });
+        return res.status(500).json({ 
+            success: false, 
+            message: 'Gagal mengambil data kas: ' + error.message 
+        });
     }
 });
 
@@ -481,7 +489,6 @@ router.post('/receivables/:id/pay', requireAuthApi, async (req, res) => {
         const userId = req.session.user.id;
         const { pay_amount, payment_amount } = req.body;
         
-        // Fleksibel membaca variabel pay_amount atau payment_amount dari frontend
         const payment = parseFloat(pay_amount || payment_amount) || 0;
 
         if (payment <= 0) {
@@ -498,13 +505,12 @@ router.post('/receivables/:id/pay', requireAuthApi, async (req, res) => {
         const newRemaining = Math.max(0, currentRemaining - payment);
         const newStatus = newRemaining === 0 ? 'Lunas' : 'Belum Lunas';
 
-        // Update sisa piutang di database
         await db.query(
             'UPDATE receivables SET remaining_amount = ?, status = ? WHERE id = ? AND user_id = ?',
             [newRemaining, newStatus, id, userId]
         );
 
-        // 🟢 Otomatis catat Kas Masuk ke cash_flows dengan ENUM 'Masuk'
+        // Otomatis catat Kas Masuk ke cash_flows dengan ENUM 'Masuk'
         await db.query(
             `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Masuk', ?, ?, NOW())`,
             [userId, payment, `Terima cicilan piutang dari ${customerName}`]
@@ -593,7 +599,7 @@ router.post('/debts/:id/pay', requireAuthApi, async (req, res) => {
             [newRemaining, newStatus, id, userId]
         );
 
-        // 🟢 Otomatis catat Kas Keluar ke cash_flows dengan ENUM 'Keluar'
+        // Otomatis catat Kas Keluar ke cash_flows dengan ENUM 'Keluar'
         await db.query(
             `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Keluar', ?, ?, NOW())`,
             [userId, -Math.abs(payment), `Bayar hutang supplier ke ${supplierName}`]
