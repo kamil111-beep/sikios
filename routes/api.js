@@ -259,7 +259,9 @@ router.get('/sales', requireAuthApi, async (req, res) => {
     try {
         const userId = req.session.user.id;
         const [rows] = await db.query(`
-            SELECT id, invoice_number, total_amount, paid_amount, change_amount, payment_method, transaction_date, created_at 
+            SELECT id, invoice_number, total_amount, paid_amount, change_amount, payment_method, 
+                   DATE_ADD(COALESCE(transaction_date, created_at), INTERVAL 7 HOUR) AS transaction_date, 
+                   created_at 
             FROM sales 
             WHERE user_id = ? 
             ORDER BY id DESC 
@@ -314,22 +316,24 @@ router.post('/reports/reset', requireAuthApi, async (req, res) => {
     try {
         const { date } = req.body;
         const userId = req.session.user.id;
-        const targetDate = date || new Date().toISOString().split('T')[0];
+        
+        // Format WIB
+        const targetDate = date || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         await db.query(`
             DELETE sd FROM sale_details sd
             JOIN sales s ON sd.sale_id = s.id
-            WHERE s.user_id = ? AND DATE(s.transaction_date) = ?
+            WHERE s.user_id = ? AND DATE(DATE_ADD(s.transaction_date, INTERVAL 7 HOUR)) = ?
         `, [userId, targetDate]);
 
         await db.query(`
             DELETE FROM sales 
-            WHERE user_id = ? AND DATE(transaction_date) = ?
+            WHERE user_id = ? AND DATE(DATE_ADD(transaction_date, INTERVAL 7 HOUR)) = ?
         `, [userId, targetDate]);
 
         await db.query(`
             DELETE FROM cash_flows 
-            WHERE user_id = ? AND DATE(COALESCE(transaction_date, created_at)) = ?
+            WHERE user_id = ? AND DATE(DATE_ADD(COALESCE(transaction_date, created_at), INTERVAL 7 HOUR)) = ?
         `, [userId, targetDate]);
 
         res.json({ 
@@ -346,7 +350,7 @@ router.post('/reports/reset', requireAuthApi, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT BUKU KAS (CASH FLOW) - REKAPITULASI DUA ARAH (DIPERBAIKI)
+// ENDPOINT BUKU KAS (CASH FLOW) - WIB (UTC+7) SINKRON
 // ==========================================
 
 router.get('/cash-flow', requireAuthApi, async (req, res) => {
@@ -354,13 +358,21 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
         const { date } = req.query;
         const userId = req.session.user.id;
         
-        let querySql = `SELECT * FROM cash_flows WHERE user_id = ?`;
+        // Menggunakan waktu WIB sebagai default tanggal target
+        const targetDate = date || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+        let querySql = `
+            SELECT id, user_id, type, amount, description, 
+                   DATE_ADD(COALESCE(transaction_date, created_at), INTERVAL 7 HOUR) AS transaction_date, 
+                   created_at 
+            FROM cash_flows 
+            WHERE user_id = ?
+        `;
         let queryParams = [userId];
 
-        // Filter fleksibel: jika ada query date gunakan tanggal tersebut, jika tidak ambil seluruh data kas
         if (date && date.trim() !== '' && date !== 'all') {
-            querySql += ` AND (DATE(transaction_date) = ? OR (transaction_date IS NULL AND DATE(created_at) = ?))`;
-            queryParams.push(date.trim(), date.trim());
+            querySql += ` AND DATE(DATE_ADD(COALESCE(transaction_date, created_at), INTERVAL 7 HOUR)) = ?`;
+            queryParams.push(date.trim());
         }
 
         querySql += ` ORDER BY id DESC`;
@@ -375,7 +387,6 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
                 const amount = parseFloat(item.amount) || 0;
                 const typeStr = String(item.type || '').trim().toLowerCase();
 
-                // Deteksi tipe pengeluaran ('Keluar', 'out', 'pengeluaran') atau amount bernilai negatif
                 if (typeStr === 'out' || typeStr === 'keluar' || typeStr === 'pengeluaran' || amount < 0) {
                     totalExpense += Math.abs(amount);
                 } else {
@@ -388,7 +399,7 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
 
         return res.json({ 
             success: true, 
-            selected_date: date || 'semua',
+            selected_date: targetDate,
             data: rows || [], 
             total_income: totalIncome,
             total_expense: totalExpense,
@@ -396,7 +407,6 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
         });
     } catch (error) {
         console.error('Error fetch cash-flow:', error);
-        // Mengembalikan struktur array kosong agar tampilan frontend tidak patah / memunculkan error merah
         return res.json({ 
             success: true, 
             selected_date: req.query.date || 'semua',
@@ -417,12 +427,13 @@ router.post('/cash-flow', requireAuthApi, async (req, res) => {
         const typeStr = String(type || '').trim().toLowerCase();
         const isExpense = ['out', 'keluar', 'pengeluaran'].includes(typeStr);
         
-        // Simpan jenis standar ('Keluar' atau 'Masuk') sesuai ENUM database
         const dbType = isExpense ? 'Keluar' : 'Masuk';
         const finalAmount = isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
+        // 🟢 Simpan dengan konversi jam WIB secara pasti
         const [result] = await db.query(
-            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, ?, ?, ?, NOW())`,
+            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
+             VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
             [userId, dbType, finalAmount, description || null]
         );
 
@@ -436,10 +447,12 @@ router.post('/cash-flow', requireAuthApi, async (req, res) => {
 router.delete('/cash-flow/reset-today', requireAuthApi, async (req, res) => {
     try {
         const userId = req.session.user.id;
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         const [result] = await db.query(
-            `DELETE FROM cash_flows WHERE user_id = ? AND DATE(COALESCE(transaction_date, created_at)) = ?`,
+            `DELETE FROM cash_flows 
+             WHERE user_id = ? 
+             AND DATE(DATE_ADD(COALESCE(transaction_date, created_at), INTERVAL 7 HOUR)) = ?`,
             [userId, todayStr]
         );
 
@@ -521,9 +534,10 @@ router.post('/receivables/:id/pay', requireAuthApi, async (req, res) => {
             [newRemaining, newStatus, id, userId]
         );
 
-        // Otomatis catat Kas Masuk ke cash_flows dengan ENUM 'Masuk'
+        // 🟢 Otomatis catat Kas Masuk ke cash_flows dengan jam WIB
         await db.query(
-            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Masuk', ?, ?, NOW())`,
+            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
+             VALUES (?, 'Masuk', ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
             [userId, payment, `Terima cicilan piutang dari ${customerName}`]
         );
 
@@ -610,9 +624,10 @@ router.post('/debts/:id/pay', requireAuthApi, async (req, res) => {
             [newRemaining, newStatus, id, userId]
         );
 
-        // Otomatis catat Kas Keluar ke cash_flows dengan ENUM 'Keluar'
+        // 🟢 Otomatis catat Kas Keluar ke cash_flows dengan jam WIB
         await db.query(
-            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Keluar', ?, ?, NOW())`,
+            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
+             VALUES (?, 'Keluar', ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
             [userId, -Math.abs(payment), `Bayar hutang supplier ke ${supplierName}`]
         );
 
