@@ -1,0 +1,5 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, sans-serif; display: flex; background: #f5f7fb; }
+aside { min-height: 100vh; width: 220px; padding: 24px; color: #fff; background: #465fa4; }
+aside a { display: block; margin: 12px 0; color: inherit; text-decoration: none; }
+main { padding: 32px; }

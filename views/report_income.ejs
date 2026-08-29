@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIKIOS - Laporan Laba Rugi</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        input[type="text"], input[type="number"], input[type="date"], input[type="password"], select, textarea {
+            font-size: 16px !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans antialiased min-h-screen">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- ==================== 1. SIDEBAR DESKTOP ==================== -->
+        <aside class="hidden md:flex md:w-64 flex-col bg-white border-r border-slate-100 p-5 text-slate-700 h-screen sticky top-0 flex-shrink-0">
+            <div class="text-2xl font-black text-[#800020] mb-6 flex items-center gap-3 tracking-wide px-1">
+                <i class="fa-solid fa-shop text-2xl"></i> SIKIOS
+            </div>
+
+            <nav class="space-y-0.5 font-bold text-sm overflow-y-auto flex-1">
+                <a href="/dashboard" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-chart-pie w-5 text-base"></i> Dashboard
+                </a>
+                <a href="/sales" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-cash-register w-5 text-base"></i> Kasir / POS
+                </a>
+                <a href="/products" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-boxes-stacked w-5 text-base"></i> Data Barang
+                </a>
+                <a href="/cash-flow" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-wallet w-5 text-base"></i> Buku Kas
+                </a>
+                <a href="/receivables" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-hand-holding-dollar w-5 text-base"></i> Piutang Konsumen
+                </a>
+                <a href="/debts" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-base"></i> Hutang Supplier
+                </a>
+                <a href="/reports" class="flex items-center gap-3 px-3.5 py-2 bg-[#800020]/10 text-[#800020] rounded-xl font-extrabold">
+                    <i class="fa-solid fa-chart-line w-5 text-base"></i> Laporan
+                </a>
+            </nav>
+
+            <div class="mt-auto pt-3 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden px-1">
+                    <div id="user-avatar" class="w-8 h-8 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                        <%= typeof user !== 'undefined' && user.name ? user.name.substring(0,2).toUpperCase() : 'AD' %>
+                    </div>
+                    <div class="truncate">
+                        <h4 id="user-name" class="text-xs font-extrabold text-slate-900 leading-tight truncate">
+                            <%= typeof user !== 'undefined' && user.name ? user.name : 'Admin Kasir' %>
+                        </h4>
+                        <p id="user-role" class="text-[10px] text-slate-400 font-semibold">
+                            <%= typeof user !== 'undefined' && user.role ? user.role : 'Active Account' %>
+                        </p>
+                        <!-- Tombol Edit Profil Desktop -->
+                        <button onclick="openProfileModal()" class="text-[10px] text-[#800020] hover:underline font-bold mt-0.5 block cursor-pointer">
+                            <i class="fa-solid fa-user-pen mr-0.5"></i> Edit Profil
+                        </button>
+                    </div>
+                </div>
+
+                <a href="/logout" title="Logout" class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-[#800020] text-[#800020] hover:text-white transition flex items-center justify-center cursor-pointer flex-shrink-0 text-xs font-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ==================== 2. MOBILE DRAWER ==================== -->
+        <div id="drawer-backdrop" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+        <aside id="drawer-menu" class="fixed top-0 left-0 bottom-0 w-72 bg-white border-r border-slate-200 text-slate-800 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col p-5 shadow-2xl md:hidden">
+            <div class="flex items-center justify-between pb-4 mb-3 border-b border-slate-100">
+                <div class="text-xl font-black text-[#800020] flex items-center gap-2 tracking-wide">
+                    <i class="fa-solid fa-shop text-xl"></i> SIKIOS
+                </div>
+                <button type="button" onclick="toggleMobileMenu()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 flex items-center justify-center transition text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            <nav class="space-y-0.5 font-bold text-sm text-slate-700 overflow-y-auto flex-1">
+                <a href="/dashboard" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-chart-pie w-6"></i> Dashboard</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/sales" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-cash-register w-6"></i> Kasir / POS</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/products" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-boxes-stacked w-6"></i> Data Barang</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/cash-flow" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-wallet w-6"></i> Buku Kas</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/receivables" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-hand-holding-dollar w-6"></i> Piutang Konsumen</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/debts" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-file-invoice-dollar w-6"></i> Hutang Supplier</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/reports" class="flex items-center justify-between p-2.5 bg-[#800020]/10 text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-chart-line w-6"></i> Laporan</span><i class="fa-solid fa-chevron-right text-xs"></i></a>
+            </nav>
+
+            <div class="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <div id="mobile-user-avatar" class="w-9 h-9 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                        <%= typeof user !== 'undefined' && user.name ? user.name.substring(0,2).toUpperCase() : 'AD' %>
+                    </div>
+                    <div class="truncate">
+                        <h4 id="mobile-user-name" class="text-xs font-extrabold text-slate-900 leading-tight truncate">
+                            <%= typeof user !== 'undefined' && user.name ? user.name : 'Admin Kasir' %>
+                        </h4>
+                        <p id="mobile-user-role" class="text-[10px] text-slate-400 font-semibold">
+                            <%= typeof user !== 'undefined' && user.role ? user.role : 'Active Account' %>
+                        </p>
+                        <!-- Tombol Edit Profil Mobile -->
+                        <button onclick="openProfileModal()" class="text-[10px] text-[#800020] hover:underline font-bold mt-0.5 block cursor-pointer">
+                            <i class="fa-solid fa-user-pen mr-0.5"></i> Edit Profil
+                        </button>
+                    </div>
+                </div>
+
+                <a href="/logout" title="Logout" class="w-9 h-9 rounded-lg bg-rose-50 hover:bg-[#800020] text-[#800020] hover:text-white transition flex items-center justify-center cursor-pointer flex-shrink-0 text-xs font-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ==================== 3. KONTEN UTAMA ==================== -->
+        <main class="flex-1 w-full p-4 md:p-6 h-screen overflow-y-auto">
+            <div class="flex flex-col md:flex-row justify-between md:items-center gap-4 mb-6">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md cursor-pointer flex-shrink-0">
+                        <i class="fa-solid fa-bars text-base"></i>
+                    </button>
+                    <div>
+                        <h1 class="font-black text-slate-900 text-2xl tracking-tight">Laporan Laba Rugi</h1>
+                        <p class="text-xs text-slate-500 font-medium">Ringkasan pendapatan, HPP, pengeluaran kas, dan laba bersih.</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 self-start md:self-auto">
+                    <!-- TOMBOL CUSTOM DATE PICKER (GAYA BUKU KAS) -->
+                    <div onclick="openCustomCalendar()" class="bg-white border border-slate-200 shadow-sm rounded-2xl px-4 py-2.5 flex items-center gap-3 hover:border-slate-400 transition cursor-pointer select-none">
+                        <span id="date-picker-display" class="font-black text-slate-800 text-xs tracking-wide">--/--/----</span>
+                        <i class="fa-regular fa-calendar text-slate-800 text-sm"></i>
+                    </div>
+
+                    <button onclick="resetTodayData()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition flex items-center gap-1.5 shadow-sm cursor-pointer">
+                        <i class="fa-solid fa-rotate-left"></i> Reset Data Hari Ini
+                    </button>
+                </div>
+            </div>
+
+            <!-- CARD RINGKASAN -->
+            <div class="bg-white rounded-3xl border border-slate-200/80 shadow-sm p-6 md:p-8 max-w-4xl mb-12">
+                <div class="flex justify-between items-center pb-6 border-b border-slate-100 mb-6">
+                    <h3 class="font-black text-slate-900 text-base">Ringkasan Perhitungan Laba Rugi</h3>
+                    <span id="badge-date" class="bg-slate-900 text-white text-xs font-bold px-3 py-1 rounded-full">--</span>
+                </div>
+
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center text-sm py-1">
+                        <span class="font-semibold text-slate-600">Total Penjualan (Omset)</span>
+                        <span id="val-omset" class="font-black text-slate-900 text-base">Rp 0</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm py-1">
+                        <span class="font-semibold text-slate-600">Harga Pokok Penjualan (HPP)</span>
+                        <span id="val-hpp" class="font-bold text-rose-500 text-base">- Rp 0</span>
+                    </div>
+
+                    <div class="bg-emerald-50 border border-emerald-100/80 rounded-2xl p-4 flex justify-between items-center my-3">
+                        <span class="font-black text-emerald-900 text-sm">Laba Kotor</span>
+                        <span id="val-laba-kotor" class="font-black text-emerald-700 text-lg">Rp 0</span>
+                    </div>
+
+                    <div class="flex justify-between items-center text-sm py-1">
+                        <span class="font-semibold text-slate-600">Beban Operasional Kas</span>
+                        <span id="val-beban" class="font-bold text-rose-500 text-base">- Rp 0</span>
+                    </div>
+
+                    <div class="bg-slate-900 text-white rounded-2xl p-5 flex justify-between items-center mt-4 shadow-lg">
+                        <span class="font-black text-white text-base">Laba Bersih</span>
+                        <span id="val-laba-bersih" class="font-black text-white text-2xl">Rp 0</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ==================== 4. MODAL EDIT PROFIL & PASSWORD ==================== -->
+    <div id="profileModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-user-gear text-[#800020]"></i> Pengaturan Akun
+                </h3>
+                <button type="button" onclick="closeProfileModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 flex items-center justify-center transition text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            
+            <!-- Form 1: Ubah Nama -->
+            <div class="mb-5">
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Ubah Nama Profil</h4>
+                <form onsubmit="updateProfileName(event)" class="space-y-2.5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Nama Lengkap Baru</label>
+                        <input type="text" id="newNameInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <button type="submit" class="bg-[#800020] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-900 transition w-full cursor-pointer shadow-sm">
+                        Simpan Nama Baru
+                    </button>
+                </form>
+            </div>
+
+            <hr class="my-4 border-slate-100">
+
+            <!-- Form 2: Ubah Password -->
+            <div>
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Ganti Password</h4>
+                <form onsubmit="updatePassword(event)" class="space-y-2.5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Password Lama</label>
+                        <input type="password" id="currentPasswordInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Password Baru</label>
+                        <input type="password" id="newPasswordInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <button type="submit" class="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition w-full cursor-pointer shadow-sm">
+                        Ubah Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 5. MODAL CUSTOM CALENDAR (GAYA BUKU KAS) ==================== -->
+    <div id="custom-calendar-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-slate-900 text-slate-200 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col p-6 border border-slate-800 animate-in fade-in zoom-in duration-150 relative">
+            
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-black text-lg text-white tracking-wide">Set Date</h3>
+                <button onclick="closeCustomCalendar()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center font-bold cursor-pointer transition">&times;</button>
+            </div>
+
+            <div class="flex justify-between items-center mb-6 px-1">
+                <button onclick="changeMonth(-1)" class="w-8 h-8 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
+                    <i class="fa-solid fa-chevron-left text-xs"></i>
+                </button>
+                <div class="flex items-center gap-3">
+                    <span id="cal-today-btn" onclick="selectToday()" class="text-xs font-bold text-slate-400 hover:text-white cursor-pointer transition">Today</span>
+                    <h4 id="cal-month-year" class="font-black text-white text-base">August 2026</h4>
+                </div>
+                <button onclick="changeMonth(1)" class="w-8 h-8 rounded-full hover:bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center transition cursor-pointer">
+                    <i class="fa-solid fa-chevron-right text-xs"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-7 text-center text-xs font-bold text-slate-500 mb-3">
+                <span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span>
+            </div>
+
+            <div id="cal-days-grid" class="grid grid-cols-7 gap-y-2 text-center text-xs font-semibold mb-6">
+                <!-- Grid Tanggal -->
+            </div>
+
+            <button onclick="confirmSelectedDate()" class="w-full py-3 bg-[#800020] hover:bg-[#600018] text-white font-black rounded-2xl shadow-lg transition cursor-pointer flex items-center justify-center gap-2">
+                <span>Set Date</span>
+                <i class="fa-solid fa-check text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- SCRIPT ENGINE -->
+    <script>
+        let currentDate = new Date();
+        let selectedDateStr = new Date().toISOString().split('T')[0];
+
+        function toggleMobileMenu() {
+            const drawer = document.getElementById('drawer-menu');
+            const backdrop = document.getElementById('drawer-backdrop');
+            if (!drawer || !backdrop) return;
+            const isHidden = drawer.classList.contains('-translate-x-full');
+            if (isHidden) {
+                backdrop.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    backdrop.classList.add('opacity-100');
+                    backdrop.classList.remove('opacity-0');
+                    drawer.classList.remove('-translate-x-full');
+                });
+            } else {
+                drawer.classList.add('-translate-x-full');
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => { backdrop.classList.add('hidden'); }, 300);
+            }
+        }
+
+        // --- HANDLER MODAL PROFIL & PASSWORD ---
+        function openProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                const currentName = document.getElementById('user-name')?.innerText || '';
+                document.getElementById('newNameInput').value = currentName.trim();
+            }
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        async function updateProfileName(e) {
+            e.preventDefault();
+            const newName = document.getElementById('newNameInput').value;
+
+            try {
+                const res = await fetch('/api/auth/update-profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Sukses', data.message, 'dark');
+                    closeProfileModal();
+                    fetchCurrentUser();
+                } else {
+                    showToast('Gagal', data.message, 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Terjadi kesalahan saat memperbarui nama.', 'error');
+            }
+        }
+
+        async function updatePassword(e) {
+            e.preventDefault();
+            const current_password = document.getElementById('currentPasswordInput').value;
+            const new_password = document.getElementById('newPasswordInput').value;
+
+            try {
+                const res = await fetch('/api/auth/update-password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password, new_password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Sukses', data.message, 'dark');
+                    closeProfileModal();
+                    document.getElementById('currentPasswordInput').value = '';
+                    document.getElementById('newPasswordInput').value = '';
+                } else {
+                    showToast('Gagal', data.message, 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Terjadi kesalahan saat mengubah password.', 'error');
+            }
+        }
+
+        function showToast(title = 'Notification', message = '', type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            let bgClass = "bg-white/95 text-slate-800 border-slate-200/90 shadow-slate-200/60";
+            let titleColor = "text-slate-900";
+            let messageColor = "text-slate-500";
+            let timeColor = "text-slate-400";
+            let iconBg = "bg-emerald-500 text-white";
+            let iconSymbol = '<i class="fa-solid fa-check text-xs"></i>';
+
+            if (type === 'dark') {
+                bgClass = "bg-slate-900/95 text-white border-slate-800 shadow-slate-950/40";
+                titleColor = "text-white";
+                messageColor = "text-slate-300";
+                timeColor = "text-slate-400";
+                iconBg = "bg-slate-800 text-sky-400 border border-slate-700";
+                iconSymbol = '<i class="fa-solid fa-shop text-white"></i>';
+            } else if (type === 'error') {
+                iconBg = "bg-rose-500 text-white";
+                iconSymbol = '<i class="fa-solid fa-xmark text-xs"></i>';
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3.5 p-3.5 rounded-2xl border ${bgClass} shadow-xl backdrop-blur-md transform transition-all duration-300 translate-y-[-12px] opacity-0 scale-95`;
+
+            toast.innerHTML = `
+                <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center font-black flex-shrink-0 shadow-sm">${iconSymbol}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <h4 class="font-black text-xs tracking-tight ${titleColor}">${title}</h4>
+                        <span class="text-[10px] font-bold ${timeColor}">Baru saja</span>
+                    </div>
+                    <p class="text-xs ${messageColor} font-medium leading-snug line-clamp-2">${message}</p>
+                </div>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-[-12px]', 'opacity-0', 'scale-95');
+                toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
+                toast.classList.add('translate-y-[-12px]', 'opacity-0', 'scale-95');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchCurrentUser();
+            initReportDate();
+        });
+
+        async function fetchCurrentUser() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data && data.name) {
+                    const initials = data.name.substring(0, 2).toUpperCase();
+                    document.getElementById('user-name').innerText = data.name;
+                    document.getElementById('user-role').innerText = data.role || 'Active Account';
+                    document.getElementById('user-avatar').innerText = initials;
+
+                    document.getElementById('mobile-user-name').innerText = data.name;
+                    document.getElementById('mobile-user-role').innerText = data.role || 'Active Account';
+                    document.getElementById('mobile-user-avatar').innerText = initials;
+                }
+            } catch (e) {}
+        }
+
+        function initReportDate() {
+            const todayStr = new Date().toISOString().split('T')[0];
+            selectedDateStr = todayStr;
+            updateDateDisplay(todayStr);
+            loadIncomeStatement();
+        }
+
+        function openCustomCalendar() {
+            const [y, m, d] = selectedDateStr.split('-');
+            currentDate = new Date(y, m - 1, d);
+            renderCalendar();
+            document.getElementById('custom-calendar-modal').classList.remove('hidden');
+            document.getElementById('custom-calendar-modal').classList.add('flex');
+        }
+
+        function closeCustomCalendar() {
+            document.getElementById('custom-calendar-modal').classList.add('hidden');
+            document.getElementById('custom-calendar-modal').classList.remove('flex');
+        }
+
+        function changeMonth(direction) {
+            currentDate.setMonth(currentDate.getMonth() + direction);
+            renderCalendar();
+        }
+
+        function selectToday() {
+            currentDate = new Date();
+            selectedDateStr = currentDate.toISOString().split('T')[0];
+            renderCalendar();
+        }
+
+        function renderCalendar() {
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('cal-month-year').innerText = `${monthNames[month]} ${year}`;
+
+            const firstDayIndex = new Date(year, month, 1).getDay();
+            const totalDays = new Date(year, month + 1, 0).getDate();
+            const prevTotalDays = new Date(year, month, 0).getDate();
+
+            const grid = document.getElementById('cal-days-grid');
+            grid.innerHTML = '';
+
+            for (let i = firstDayIndex; i > 0; i--) {
+                const dayNum = prevTotalDays - i + 1;
+                grid.innerHTML += `<span class="py-1.5 text-slate-600 font-medium">${dayNum}</span>`;
+            }
+
+            for (let i = 1; i <= totalDays; i++) {
+                const mFormatted = String(month + 1).padStart(2, '0');
+                const dFormatted = String(i).padStart(2, '0');
+                const dateString = `${year}-${mFormatted}-${dFormatted}`;
+
+                const isSelected = dateString === selectedDateStr;
+                const isToday = dateString === new Date().toISOString().split('T')[0];
+
+                let bgClass = "hover:bg-slate-800 text-slate-300";
+                if (isSelected) {
+                    bgClass = "bg-[#800020] text-white font-black shadow-lg shadow-rose-950/50 scale-105";
+                } else if (isToday) {
+                    bgClass = "border border-slate-700 text-white font-bold";
+                }
+
+                grid.innerHTML += `<span onclick="pickDate('${dateString}')" class="py-1.5 rounded-full cursor-pointer transition ${bgClass} flex items-center justify-center">${i}</span>`;
+            }
+
+            const totalCellsPrinted = firstDayIndex + totalDays;
+            const remainingCells = totalCellsPrinted % 7 === 0 ? 0 : 7 - (totalCellsPrinted % 7);
+            for (let i = 1; i <= remainingCells; i++) {
+                grid.innerHTML += `<span class="py-1.5 text-slate-600 font-medium">${i}</span>`;
+            }
+        }
+
+        function pickDate(dateStr) {
+            selectedDateStr = dateStr;
+            renderCalendar();
+        }
+
+        function confirmSelectedDate() {
+            updateDateDisplay(selectedDateStr);
+            closeCustomCalendar();
+            loadIncomeStatement();
+        }
+
+        function updateDateDisplay(dateStr) {
+            if (!dateStr) return;
+            const [y, m, d] = dateStr.split('-');
+            document.getElementById('date-picker-display').innerText = `${d}/${m}/${y}`;
+            document.getElementById('badge-date').innerText = dateStr;
+        }
+
+        async function loadIncomeStatement() {
+            try {
+                const res = await fetch(`/api/reports/income-statement?date=${selectedDateStr}&_t=${Date.now()}`);
+                const result = await res.json();
+                
+                const data = result.data || {};
+
+                const omset = Math.abs(parseFloat(data.omset || data.total_sales || data.revenue || 0));
+                let rawHpp = parseFloat(data.hpp !== undefined ? data.hpp : (data.total_hpp !== undefined ? data.total_hpp : 0));
+
+                if (omset > 0 && (isNaN(rawHpp) || rawHpp === 0)) {
+                    rawHpp = Math.round(omset * 0.7);
+                }
+
+                const hpp = Math.abs(rawHpp);
+                const labaKotor = omset - hpp;
+                const beban = Math.abs(parseFloat(data.beban_operasional || data.operational_expense || data.expenses || 0));
+                const labaBersih = labaKotor - beban;
+
+                document.getElementById('val-omset').innerText = `Rp ${omset.toLocaleString('id-ID')}`;
+                document.getElementById('val-hpp').innerText = `- Rp ${hpp.toLocaleString('id-ID')}`;
+                document.getElementById('val-laba-kotor').innerText = `Rp ${labaKotor.toLocaleString('id-ID')}`;
+                document.getElementById('val-beban').innerText = `- Rp ${beban.toLocaleString('id-ID')}`;
+                document.getElementById('val-laba-bersih').innerText = `Rp ${labaBersih.toLocaleString('id-ID')}`;
+
+            } catch (err) {
+                console.error('Error loadIncomeStatement:', err);
+            }
+        }
+
+        async function resetTodayData() {
+            if (!confirm('Apakah Anda yakin ingin mereset seluruh data transaksi pada tanggal ini?')) return;
+
+            try {
+                const res = await fetch('/api/reports/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ date: selectedDateStr })
+                });
+                const result = await res.json();
+                showToast('Notifikasi', result.message || 'Data berhasil direset.', 'dark');
+                loadIncomeStatement();
+            } catch (err) {
+                showToast('Gagal', 'Gagal mereset data.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

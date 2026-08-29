@@ -1,0 +1,77 @@
+<!-- Toast Container (Fixed di Pojok Kanan Atas) -->
+<div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+<script>
+/**
+ * Global Toast Notification Engine untuk SIKIOS
+ * @param {string} title - Judul (ex: 'Berhasil', 'Error', 'Info')
+ * @param {string} message - Pesan notifikasi
+ * @param {string} type - 'success' | 'error' | 'warning' | 'dark'
+ */
+function showToast(title = 'Notification', message = '', type = 'success') {
+    let container = document.getElementById('toast-container');
+    
+    // Jika container belum ada di DOM, buat otomatis
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none';
+        document.body.appendChild(container);
+    }
+
+    // Penentuan Theme & Gaya Notifikasi (iOS / macOS Style)
+    let bgClass = "bg-white/95 text-slate-800 border-slate-200/90 shadow-slate-200/60";
+    let titleColor = "text-slate-900";
+    let messageColor = "text-slate-500";
+    let timeColor = "text-slate-400";
+    let iconBg = "bg-emerald-500 text-white";
+    let iconSymbol = '<i class="fa-solid fa-check text-xs"></i>';
+
+    if (type === 'dark') {
+        bgClass = "bg-slate-800/95 text-white border-slate-700 shadow-slate-900/40";
+        titleColor = "text-white";
+        messageColor = "text-slate-300";
+        timeColor = "text-slate-400";
+        iconBg = "bg-slate-700 text-white border border-slate-600";
+        iconSymbol = '<i class="fa-solid fa-shop text-xs"></i>';
+    } else if (type === 'error') {
+        iconBg = "bg-rose-500 text-white";
+        iconSymbol = '<i class="fa-solid fa-xmark text-xs"></i>';
+    } else if (type === 'warning') {
+        iconBg = "bg-amber-500 text-white";
+        iconSymbol = '<i class="fa-solid fa-exclamation text-xs"></i>';
+    }
+
+    // Elemen Toast Notifikasi
+    const toast = document.createElement('div');
+    toast.className = `pointer-events-auto flex items-center gap-3.5 p-3.5 rounded-2xl border ${bgClass} shadow-xl backdrop-blur-md transform transition-all duration-300 translate-y-[-12px] opacity-0 scale-95`;
+
+    toast.innerHTML = `
+        <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center font-black flex-shrink-0 shadow-sm">
+            ${iconSymbol}
+        </div>
+        <div class="flex-1 min-w-0">
+            <div class="flex justify-between items-center mb-0.5">
+                <h4 class="font-black text-xs tracking-tight ${titleColor}">${title}</h4>
+                <span class="text-[10px] font-bold ${timeColor}">Baru saja</span>
+            </div>
+            <p class="text-xs ${messageColor} font-medium leading-snug line-clamp-2">${message}</p>
+        </div>
+    `;
+
+    container.appendChild(toast);
+
+    // Animasi Masuk
+    requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-[-12px]', 'opacity-0', 'scale-95');
+        toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+    });
+
+    // Durasi Hilang Otomatis (3.5 Detik)
+    setTimeout(() => {
+        toast.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
+        toast.classList.add('translate-y-[-12px]', 'opacity-0', 'scale-95');
+        setTimeout(() => toast.remove(), 300);
+    }, 3500);
+}
+</script>

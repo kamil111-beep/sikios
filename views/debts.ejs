@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <!-- 🟢 Mengunci skala viewport agar tidak otomatis zoom di HP -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIKIOS - Hutang Supplier</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        /* 🟢 Memaksa ukuran font input & date minimal 16px agar browser HP tidak auto-zoom */
+        input[type="text"], input[type="number"], input[type="date"], select, textarea {
+            font-size: 16px !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans antialiased min-h-screen">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- ==================== 1. SIDEBAR DESKTOP ==================== -->
+        <aside class="hidden md:flex md:w-64 flex-col bg-white border-r border-slate-100 p-5 text-slate-700 h-screen sticky top-0 flex-shrink-0">
+            <!-- Logo SIKIOS Maroon -->
+            <div class="text-2xl font-black text-[#800020] mb-6 flex items-center gap-3 tracking-wide px-1">
+                <i class="fa-solid fa-shop text-2xl"></i> SIKIOS
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="space-y-0.5 font-bold text-sm overflow-y-auto flex-1">
+                <a href="/dashboard" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-chart-pie w-5 text-base"></i> Dashboard
+                </a>
+                <a href="/sales" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-cash-register w-5 text-base"></i> Kasir / POS
+                </a>
+                <a href="/products" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-boxes-stacked w-5 text-base"></i> Data Barang
+                </a>
+                <a href="/cash-flow" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-wallet w-5 text-base"></i> Buku Kas
+                </a>
+                <a href="/receivables" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-hand-holding-dollar w-5 text-base"></i> Piutang Konsumen
+                </a>
+                <!-- Active Page Maroon Highlight -->
+                <a href="/debts" class="flex items-center gap-3 px-3.5 py-2 bg-[#800020]/10 text-[#800020] rounded-xl font-extrabold">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-base"></i> Hutang Supplier
+                </a>
+                <a href="/reports" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-chart-line w-5 text-base"></i> Laporan
+                </a>
+            </nav>
+
+            <!-- PROFIL USER & LOGOUT -->
+            <div class="mt-auto pt-3 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden px-1">
+                    <div id="user-avatar" class="w-8 h-8 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                        <%= typeof user !== 'undefined' && user.name ? user.name.substring(0,2).toUpperCase() : 'AD' %>
+                    </div>
+                    <div class="truncate">
+                        <h4 id="user-name" class="text-xs font-extrabold text-slate-900 leading-tight truncate">
+                            <%= typeof user !== 'undefined' && user.name ? user.name : 'Admin Kasir' %>
+                        </h4>
+                        <p id="user-role" class="text-[10px] text-slate-400 font-semibold">
+                            <%= typeof user !== 'undefined' && user.role ? user.role : 'Active Account' %>
+                        </p>
+                        <!-- Tombol Edit Profil Desktop -->
+                        <button onclick="openProfileModal()" class="text-[10px] text-[#800020] hover:underline font-bold mt-0.5 block cursor-pointer">
+                            <i class="fa-solid fa-user-pen mr-0.5"></i> Edit Profil
+                        </button>
+                    </div>
+                </div>
+                <a href="/logout" title="Logout" class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-[#800020] text-[#800020] hover:text-white transition flex items-center justify-center cursor-pointer flex-shrink-0 text-xs font-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ==================== 2. MOBILE HAMBURGER DRAWER ==================== -->
+        <div id="drawer-backdrop" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+        <aside id="drawer-menu" class="fixed top-0 left-0 bottom-0 w-72 bg-white border-r border-slate-200 text-slate-800 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col p-5 shadow-2xl md:hidden">
+            <div class="flex items-center justify-between pb-4 mb-3 border-b border-slate-100">
+                <div class="text-xl font-black text-[#800020] flex items-center gap-2 tracking-wide">
+                    <i class="fa-solid fa-shop text-xl"></i> SIKIOS
+                </div>
+                <button type="button" onclick="toggleMobileMenu()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 flex items-center justify-center transition text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            <nav class="space-y-0.5 font-bold text-sm text-slate-700 overflow-y-auto flex-1">
+                <a href="/dashboard" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-chart-pie w-6"></i> Dashboard</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/sales" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-cash-register w-6"></i> Kasir / POS</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/products" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-boxes-stacked w-6"></i> Data Barang</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/cash-flow" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-wallet w-6"></i> Buku Kas</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/receivables" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-hand-holding-dollar w-6"></i> Piutang Konsumen</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/debts" class="flex items-center justify-between p-2.5 bg-[#800020]/10 text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-file-invoice-dollar w-6"></i> Hutang Supplier</span><i class="fa-solid fa-chevron-right text-xs"></i></a>
+                <a href="/reports" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-chart-line w-6"></i> Laporan</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+            </nav>
+
+            <div class="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <div id="mobile-user-avatar" class="w-9 h-9 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                        <%= typeof user !== 'undefined' && user.name ? user.name.substring(0,2).toUpperCase() : 'AD' %>
+                    </div>
+                    <div class="truncate">
+                        <h4 id="mobile-user-name" class="text-xs font-extrabold text-slate-900 leading-tight truncate">
+                            <%= typeof user !== 'undefined' && user.name ? user.name : 'Admin Kasir' %>
+                        </h4>
+                        <p id="mobile-user-role" class="text-[10px] text-slate-400 font-semibold">
+                            <%= typeof user !== 'undefined' && user.role ? user.role : 'Active Account' %>
+                        </p>
+                        <!-- Tombol Edit Profil Mobile -->
+                        <button onclick="openProfileModal()" class="text-[10px] text-[#800020] hover:underline font-bold mt-0.5 block cursor-pointer">
+                            <i class="fa-solid fa-user-pen mr-0.5"></i> Edit Profil
+                        </button>
+                    </div>
+                </div>
+                <a href="/logout" title="Logout" class="w-9 h-9 rounded-lg bg-rose-50 hover:bg-[#800020] text-[#800020] hover:text-white transition flex items-center justify-center cursor-pointer flex-shrink-0 text-xs font-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ==================== 3. KONTEN UTAMA HUTANG SUPPLIER ==================== -->
+        <main class="flex-1 w-full p-4 md:p-6 flex flex-col h-screen overflow-y-auto md:overflow-hidden">
+            
+            <div class="flex-shrink-0">
+                <!-- Header Bar -->
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-6">
+                    <div class="flex items-center gap-3">
+                        <button type="button" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md cursor-pointer flex-shrink-0">
+                            <i class="fa-solid fa-bars text-base"></i>
+                        </button>
+                        <div>
+                            <h1 class="font-black text-slate-900 text-xl md:text-2xl tracking-tight">Hutang Supplier</h1>
+                            <p class="text-xs text-slate-500 font-medium">Pencatatan tagihan dan kewajiban pembayaran ke distributor/supplier.</p>
+                        </div>
+                    </div>
+                    <button onclick="openDebtModal()" class="bg-slate-900 hover:bg-blue-950 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto">
+                        <i class="fa-solid fa-plus text-white"></i>
+                        <span>Catat Hutang Baru</span>
+                    </button>
+                </div>
+
+                <!-- Card Total Hutang -->
+                <div class="bg-white p-5 md:p-6 rounded-2xl border border-slate-200/80 shadow-sm mb-6 flex justify-between items-center">
+                    <div>
+                        <p class="text-xs font-bold text-slate-900 uppercase tracking-wider">Total Sisa Hutang Supplier</p>
+                        <h2 id="total-debt-amount" class="text-2xl md:text-3xl font-black text-rose-600 mt-1">Rp 0</h2>
+                    </div>
+                    <div class="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-rose-500/10 text-rose-600 flex items-center justify-center text-xl md:text-2xl shadow-md flex-shrink-0">
+                        <i class="fa-solid fa-file-invoice-dollar"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AREA TABEL -->
+            <div class="flex-1 min-h-[250px] bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col mb-4">
+                <div class="overflow-x-auto overflow-y-auto flex-1">
+                    <table class="w-full text-left text-xs text-slate-600 min-w-[650px]">
+                        <thead class="bg-slate-900 text-white uppercase font-extrabold border-b border-slate-800 sticky top-0 z-10">
+                            <tr>
+                                <th class="py-3.5 px-4">Nama Supplier</th>
+                                <th class="py-3.5 px-4">No. HP / WA</th>
+                                <th class="py-3.5 px-4">Total Awal</th>
+                                <th class="py-3.5 px-4">Sisa Tagihan</th>
+                                <th class="py-3.5 px-4">Jatuh Tempo</th>
+                                <th class="py-3.5 px-4 text-center">Status</th>
+                                <th class="py-3.5 px-4 text-center">Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="debt-table-body" class="divide-y divide-slate-100 font-medium">
+                            <tr>
+                                <td colspan="7" class="py-8 text-center text-slate-400">Memuat data hutang supplier...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ==================== 4. MODAL EDIT PROFIL & PASSWORD ==================== -->
+    <div id="profileModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-user-gear text-[#800020]"></i> Pengaturan Akun
+                </h3>
+                <button type="button" onclick="closeProfileModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 flex items-center justify-center transition text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            
+            <!-- Form 1: Ubah Nama -->
+            <div class="mb-5">
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Ubah Nama Profil</h4>
+                <form onsubmit="updateProfileName(event)" class="space-y-2.5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Nama Lengkap Baru</label>
+                        <input type="text" id="newNameInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <button type="submit" class="bg-[#800020] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-900 transition w-full cursor-pointer shadow-sm">
+                        Simpan Nama Baru
+                    </button>
+                </form>
+            </div>
+
+            <hr class="my-4 border-slate-100">
+
+            <!-- Form 2: Ubah Password -->
+            <div>
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Ganti Password</h4>
+                <form onsubmit="updatePassword(event)" class="space-y-2.5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Password Lama</label>
+                        <input type="password" id="currentPasswordInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Password Baru</label>
+                        <input type="password" id="newPasswordInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <button type="submit" class="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition w-full cursor-pointer shadow-sm">
+                        Ubah Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 5. MODAL TAMBAH HUTANG ==================== -->
+    <div id="debt-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+            
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white">
+                <h3 class="font-black text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-file-invoice-dollar text-white"></i> Catat Hutang Supplier Baru
+                </h3>
+                <button onclick="closeDebtModal()" class="text-slate-400 hover:text-white font-bold text-lg cursor-pointer">&times;</button>
+            </div>
+
+            <form id="debtForm" onsubmit="saveDebt(event)" class="p-5 space-y-4 bg-white">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nama Supplier / Sales *</label>
+                    <input type="text" id="supplier-name" required placeholder="Contoh: PT. Indofood / Sales Budi" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">No. HP / WhatsApp</label>
+                    <input type="text" id="supplier-phone" placeholder="Contoh: 08123456789" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Nominal Hutang (Rp) *</label>
+                        <input type="number" id="debt-amount" required placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1">Jatuh Tempo</label>
+                        <input type="date" id="debt-due-date" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Catatan / Keterangan</label>
+                    <input type="text" id="debt-notes" placeholder="Contoh: Nota #10293 - Stok Minyak Goreng" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex gap-2 justify-end">
+                    <button type="button" onclick="closeDebtModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-slate-900 hover:bg-blue-950 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer">Simpan Hutang</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- ==================== 6. MODAL BAYAR HUTANG ==================== -->
+    <div id="pay-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+            
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white">
+                <h3 class="font-black text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-money-bill-wave text-emerald-400"></i> Bayar Hutang Supplier
+                </h3>
+                <button onclick="closePayModal()" class="text-slate-400 hover:text-white font-bold text-lg cursor-pointer">&times;</button>
+            </div>
+
+            <form id="payForm" onsubmit="submitPayDebt(event)" class="p-5 space-y-4 bg-white">
+                <input type="hidden" id="pay-id">
+
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1">
+                    <p class="text-[11px] text-slate-400 font-bold uppercase">Nama Supplier</p>
+                    <h4 id="pay-supplier-name" class="font-bold text-slate-900 text-sm">-</h4>
+                    <div class="flex justify-between items-center pt-2 border-t border-slate-200 mt-2">
+                        <span class="text-xs text-slate-500 font-semibold">Sisa Tagihan:</span>
+                        <span id="pay-remaining-text" class="font-black text-rose-600 text-sm">Rp 0</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nominal Pembayaran (Rp) *</label>
+                    <input type="number" id="pay-amount-input" required placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex gap-2 justify-end">
+                    <button type="button" onclick="closePayModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer">Proses Pembayaran</button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+
+    <!-- Script Hutang Engine -->
+    <script>
+        function toggleMobileMenu() {
+            const drawer = document.getElementById('drawer-menu');
+            const backdrop = document.getElementById('drawer-backdrop');
+
+            if (!drawer || !backdrop) return;
+
+            const isHidden = drawer.classList.contains('-translate-x-full');
+
+            if (isHidden) {
+                backdrop.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    backdrop.classList.add('opacity-100');
+                    backdrop.classList.remove('opacity-0');
+                    drawer.classList.remove('-translate-x-full');
+                });
+            } else {
+                drawer.classList.add('-translate-x-full');
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        // --- HANDLER MODAL PROFIL & PASSWORD ---
+        function openProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                const currentName = document.getElementById('user-name')?.innerText || '';
+                document.getElementById('newNameInput').value = currentName.trim();
+            }
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        async function updateProfileName(e) {
+            e.preventDefault();
+            const newName = document.getElementById('newNameInput').value;
+
+            try {
+                const res = await fetch('/api/auth/update-profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Sukses', data.message, 'dark');
+                    closeProfileModal();
+                    fetchCurrentUser();
+                } else {
+                    showToast('Gagal', data.message, 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Terjadi kesalahan saat memperbarui nama.', 'error');
+            }
+        }
+
+        async function updatePassword(e) {
+            e.preventDefault();
+            const current_password = document.getElementById('currentPasswordInput').value;
+            const new_password = document.getElementById('newPasswordInput').value;
+
+            try {
+                const res = await fetch('/api/auth/update-password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password, new_password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Sukses', data.message, 'dark');
+                    closeProfileModal();
+                    document.getElementById('currentPasswordInput').value = '';
+                    document.getElementById('newPasswordInput').value = '';
+                } else {
+                    showToast('Gagal', data.message, 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Terjadi kesalahan saat mengubah password.', 'error');
+            }
+        }
+
+        function showToast(title = 'Notification', message = '', type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            let bgClass = "bg-white/95 text-slate-800 border-slate-200/90 shadow-slate-200/60";
+            let titleColor = "text-slate-900";
+            let messageColor = "text-slate-500";
+            let timeColor = "text-slate-400";
+            let iconBg = "bg-emerald-500 text-white";
+            let iconSymbol = '<i class="fa-solid fa-check text-xs"></i>';
+
+            if (type === 'dark') {
+                bgClass = "bg-slate-900/95 text-white border-slate-800 shadow-slate-950/40";
+                titleColor = "text-white";
+                messageColor = "text-slate-300";
+                timeColor = "text-slate-400";
+                iconBg = "bg-slate-800 text-sky-400 border border-slate-700";
+                iconSymbol = '<i class="fa-solid fa-shop text-white"></i>';
+            } else if (type === 'error') {
+                iconBg = "bg-rose-500 text-white";
+                iconSymbol = '<i class="fa-solid fa-xmark text-xs"></i>';
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3.5 p-3.5 rounded-2xl border ${bgClass} shadow-xl backdrop-blur-md transform transition-all duration-300 translate-y-[-12px] opacity-0 scale-95`;
+
+            toast.innerHTML = `
+                <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center font-black flex-shrink-0 shadow-sm">${iconSymbol}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <h4 class="font-black text-xs tracking-tight ${titleColor}">${title}</h4>
+                        <span class="text-[10px] font-bold ${timeColor}">Baru saja</span>
+                    </div>
+                    <p class="text-xs ${messageColor} font-medium leading-snug line-clamp-2">${message}</p>
+                </div>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-[-12px]', 'opacity-0', 'scale-95');
+                toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
+                toast.classList.add('translate-y-[-12px]', 'opacity-0', 'scale-95');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        let debtList = [];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchCurrentUser();
+            loadDebts();
+        });
+
+        async function fetchCurrentUser() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data && data.name) {
+                    const initials = data.name.substring(0, 2).toUpperCase();
+                    document.getElementById('user-name').innerText = data.name;
+                    document.getElementById('user-role').innerText = data.role || 'Active Account';
+                    document.getElementById('user-avatar').innerText = initials;
+
+                    document.getElementById('mobile-user-name').innerText = data.name;
+                    document.getElementById('mobile-user-role').innerText = data.role || 'Active Account';
+                    document.getElementById('mobile-user-avatar').innerText = initials;
+                }
+            } catch (e) {}
+        }
+
+        async function loadDebts() {
+            const tbody = document.getElementById('debt-table-body');
+            try {
+                const res = await fetch('/api/debts');
+                const result = await res.json();
+
+                debtList = result.data || result || [];
+
+                let totalRemaining = 0;
+                debtList.forEach(d => totalRemaining += parseFloat(d.remaining_amount || 0));
+
+                document.getElementById('total-debt-amount').innerText = `Rp ${totalRemaining.toLocaleString('id-ID')}`;
+                renderDebtTable(debtList);
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-rose-500 font-bold">Gagal mengambil data hutang.</td></tr>`;
+            }
+        }
+
+        function renderDebtTable(data) {
+            const tbody = document.getElementById('debt-table-body');
+            tbody.innerHTML = '';
+
+            if (!data || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" class="py-6 text-center text-slate-400">Belum ada catatan hutang supplier.</td></tr>`;
+                return;
+            }
+
+            data.forEach(d => {
+                const amount = parseFloat(d.amount || 0);
+                const remaining = parseFloat(d.remaining_amount || 0);
+                const isPaid = remaining <= 0;
+                const dueDateStr = d.due_date ? new Date(d.due_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
+
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                        <td class="py-3 px-4 font-bold text-slate-800">${d.supplier_name}</td>
+                        <td class="py-3 px-4 text-slate-500">${d.phone || '-'}</td>
+                        <td class="py-3 px-4 text-slate-500">Rp ${amount.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 font-black ${isPaid ? 'text-emerald-600' : 'text-rose-600'}">Rp ${remaining.toLocaleString('id-ID')}</td>
+                        <td class="py-3 px-4 text-slate-500">${dueDateStr}</td>
+                        <td class="py-3 px-4 text-center">
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-black ${isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}">
+                                ${isPaid ? 'LUNAS' : 'BELUM LUNAS'}
+                            </span>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            <div class="flex items-center justify-center gap-1.5">
+                                ${!isPaid ? `
+                                    <button onclick="openPayModal(${d.id})" class="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold rounded-lg transition text-[11px] flex items-center gap-1 cursor-pointer">
+                                        <i class="fa-solid fa-money-bill-wave"></i> Bayar
+                                    </button>
+                                ` : ''}
+                                <button onclick="deleteDebt(${d.id})" class="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg transition cursor-pointer" title="Hapus">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function openDebtModal() {
+            document.getElementById('debtForm').reset();
+            document.getElementById('debt-modal').classList.remove('hidden');
+            document.getElementById('debt-modal').classList.add('flex');
+            setTimeout(() => {
+                document.getElementById('supplier-name').focus();
+            }, 50);
+        }
+
+        function closeDebtModal() {
+            document.getElementById('debt-modal').classList.add('hidden');
+            document.getElementById('debt-modal').classList.remove('flex');
+        }
+
+        async function saveDebt(e) {
+            e.preventDefault();
+            const payload = {
+                supplier_name: document.getElementById('supplier-name').value.trim(),
+                phone: document.getElementById('supplier-phone').value.trim(),
+                amount: parseFloat(document.getElementById('debt-amount').value) || 0,
+                due_date: document.getElementById('debt-due-date').value,
+                notes: document.getElementById('debt-notes').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/debts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast('Berhasil', 'Data hutang supplier berhasil dicatat!', 'dark');
+                    closeDebtModal();
+                    loadDebts();
+                } else {
+                    showToast('Gagal Simpan', result.message || 'Gagal menyimpan hutang.', 'error');
+                }
+            } catch (err) {
+                showToast('Error Server', 'Tidak dapat terhubung ke server.', 'error');
+            }
+        }
+
+        function openPayModal(id) {
+            const d = debtList.find(item => item.id === id);
+            if (!d) return;
+
+            document.getElementById('pay-id').value = d.id;
+            document.getElementById('pay-supplier-name').innerText = d.supplier_name;
+            document.getElementById('pay-remaining-text').innerText = `Rp ${parseFloat(d.remaining_amount).toLocaleString('id-ID')}`;
+            document.getElementById('pay-amount-input').value = d.remaining_amount;
+
+            document.getElementById('pay-modal').classList.remove('hidden');
+            document.getElementById('pay-modal').classList.add('flex');
+            setTimeout(() => {
+                document.getElementById('pay-amount-input').focus();
+            }, 50);
+        }
+
+        function closePayModal() {
+            document.getElementById('pay-modal').classList.add('hidden');
+            document.getElementById('pay-modal').classList.remove('flex');
+        }
+
+        async function submitPayDebt(e) {
+            e.preventDefault();
+            const id = document.getElementById('pay-id').value;
+            const payAmount = parseFloat(document.getElementById('pay-amount-input').value) || 0;
+
+            try {
+                const res = await fetch(`/api/debts/${id}/pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pay_amount: payAmount })
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast('Berhasil', 'Pembayaran hutang supplier berhasil dicatat!', 'dark');
+                    closePayModal();
+                    loadDebts();
+                } else {
+                    showToast('Gagal Proses', result.message || 'Gagal memproses pembayaran.', 'error');
+                }
+            } catch (err) {
+                showToast('Error Server', 'Tidak dapat terhubung ke server.', 'error');
+            }
+        }
+
+        async function deleteDebt(id) {
+            if (!confirm('Apakah Anda yakin ingin menghapus data hutang ini?')) return;
+
+            try {
+                const res = await fetch(`/api/debts/${id}`, { method: 'DELETE' });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast('Terhapus', 'Data hutang supplier berhasil dihapus.', 'dark');
+                    loadDebts();
+                } else {
+                    showToast('Gagal Hapus', result.message || 'Gagal menghapus data.', 'error');
+                }
+            } catch (err) {
+                showToast('Error Server', 'Tidak dapat terhubung ke server.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>

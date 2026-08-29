@@ -1,0 +1,733 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <!-- 🟢 Mengunci skala viewport agar tidak otomatis zoom di HP -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SIKIOS - Buku Kas</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        /* 🟢 Memaksa ukuran font input & select minimal 16px agar browser HP tidak auto-zoom */
+        input[type="text"], input[type="number"], select, textarea {
+            font-size: 16px !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 font-sans antialiased min-h-screen">
+
+    <!-- Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none"></div>
+
+    <div class="flex h-screen overflow-hidden">
+
+        <!-- ==================== 1. SIDEBAR DESKTOP ==================== -->
+        <aside class="hidden md:flex md:w-64 flex-col bg-white border-r border-slate-100 p-5 text-slate-700 h-screen sticky top-0 flex-shrink-0">
+            <!-- Logo SIKIOS Maroon -->
+            <div class="text-2xl font-black text-[#800020] mb-6 flex items-center gap-3 tracking-wide px-1">
+                <i class="fa-solid fa-shop text-2xl"></i> SIKIOS
+            </div>
+
+            <!-- Navigation Links -->
+            <nav class="space-y-0.5 font-bold text-sm overflow-y-auto flex-1">
+                <a href="/dashboard" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-chart-pie w-5 text-base"></i> Dashboard
+                </a>
+                <a href="/sales" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-cash-register w-5 text-base"></i> Kasir / POS
+                </a>
+                <a href="/products" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-boxes-stacked w-5 text-base"></i> Data Barang
+                </a>
+                <a href="/cash-flow" class="flex items-center gap-3 px-3.5 py-2 bg-[#800020]/10 text-[#800020] rounded-xl font-extrabold">
+                    <i class="fa-solid fa-wallet w-5 text-base"></i> Buku Kas
+                </a>
+                <a href="/receivables" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-hand-holding-dollar w-5 text-base"></i> Piutang Konsumen
+                </a>
+                <a href="/debts" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-file-invoice-dollar w-5 text-base"></i> Hutang Supplier
+                </a>
+                <a href="/reports" class="flex items-center gap-3 px-3.5 py-2 text-slate-700 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition">
+                    <i class="fa-solid fa-chart-line w-5 text-base"></i> Laporan
+                </a>
+            </nav>
+
+            <!-- PROFIL USER & LOGOUT -->
+            <div class="mt-auto pt-3 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden px-1">
+                    <div id="user-avatar" class="w-8 h-8 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                        <%= typeof user !== 'undefined' && user.name ? user.name.substring(0,2).toUpperCase() : 'AD' %>
+                    </div>
+                    <div class="truncate">
+                        <h4 id="user-name" class="text-xs font-extrabold text-slate-900 leading-tight truncate">
+                            <%= typeof user !== 'undefined' && user.name ? user.name : 'Admin Kasir' %>
+                        </h4>
+                        <p id="user-role" class="text-[10px] text-slate-400 font-semibold">
+                            <%= typeof user !== 'undefined' && user.role ? user.role : 'Active Account' %>
+                        </p>
+                        <!-- Tombol Edit Profil Desktop -->
+                        <button onclick="openProfileModal()" class="text-[10px] text-[#800020] hover:underline font-bold mt-0.5 block cursor-pointer">
+                            <i class="fa-solid fa-user-pen mr-0.5"></i> Edit Profil
+                        </button>
+                    </div>
+                </div>
+                <a href="/logout" title="Logout" class="w-8 h-8 rounded-lg bg-rose-50 hover:bg-[#800020] text-[#800020] hover:text-white transition flex items-center justify-center cursor-pointer flex-shrink-0 text-xs font-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ==================== 2. MOBILE HAMBURGER DRAWER ==================== -->
+        <div id="drawer-backdrop" onclick="toggleMobileMenu()" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 hidden opacity-0 transition-opacity duration-300 md:hidden"></div>
+        <aside id="drawer-menu" class="fixed top-0 left-0 bottom-0 w-72 bg-white border-r border-slate-200 text-slate-800 z-50 transform -translate-x-full transition-transform duration-300 ease-in-out flex flex-col p-5 shadow-2xl md:hidden">
+            <div class="flex items-center justify-between pb-4 mb-3 border-b border-slate-100">
+                <div class="text-xl font-black text-[#800020] flex items-center gap-2 tracking-wide">
+                    <i class="fa-solid fa-shop text-xl"></i> SIKIOS
+                </div>
+                <button type="button" onclick="toggleMobileMenu()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 flex items-center justify-center transition text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            <nav class="space-y-0.5 font-bold text-sm text-slate-700 overflow-y-auto flex-1">
+                <a href="/dashboard" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-chart-pie w-6"></i> Dashboard</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/sales" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-cash-register w-6"></i> Kasir / POS</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/products" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-boxes-stacked w-6"></i> Data Barang</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/cash-flow" class="flex items-center justify-between p-2.5 bg-[#800020]/10 text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-wallet w-6"></i> Buku Kas</span><i class="fa-solid fa-chevron-right text-xs"></i></a>
+                <a href="/receivables" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-hand-holding-dollar w-6"></i> Piutang Konsumen</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/debts" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-file-invoice-dollar w-6"></i> Hutang Supplier</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+                <a href="/reports" class="flex items-center justify-between p-2.5 hover:bg-rose-50 hover:text-[#800020] rounded-xl transition"><span><i class="fa-solid fa-chart-line w-6"></i> Laporan</span><i class="fa-solid fa-chevron-right text-xs opacity-40"></i></a>
+            </nav>
+
+            <div class="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2.5 overflow-hidden">
+                    <div id="mobile-user-avatar" class="w-9 h-9 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center text-xs flex-shrink-0">
+                        <%= typeof user !== 'undefined' && user.name ? user.name.substring(0,2).toUpperCase() : 'AD' %>
+                    </div>
+                    <div class="truncate">
+                        <h4 id="mobile-user-name" class="text-xs font-extrabold text-slate-900 leading-tight truncate">
+                            <%= typeof user !== 'undefined' && user.name ? user.name : 'Admin Kasir' %>
+                        </h4>
+                        <p id="mobile-user-role" class="text-[10px] text-slate-400 font-semibold">
+                            <%= typeof user !== 'undefined' && user.role ? user.role : 'Active Account' %>
+                        </p>
+                        <!-- Tombol Edit Profil Mobile -->
+                        <button onclick="openProfileModal()" class="text-[10px] text-[#800020] hover:underline font-bold mt-0.5 block cursor-pointer">
+                            <i class="fa-solid fa-user-pen mr-0.5"></i> Edit Profil
+                        </button>
+                    </div>
+                </div>
+                <a href="/logout" title="Logout" class="w-9 h-9 rounded-lg bg-rose-50 hover:bg-[#800020] text-[#800020] hover:text-white transition flex items-center justify-center cursor-pointer flex-shrink-0 text-xs font-bold">
+                    <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                </a>
+            </div>
+        </aside>
+
+        <!-- ==================== 3. KONTEN UTAMA BUKU KAS ==================== -->
+        <main class="flex-1 w-full p-4 md:p-6 flex flex-col h-screen overflow-y-auto">
+            
+            <!-- Header Bar -->
+            <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-4 mb-5 flex-shrink-0">
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center shadow-md cursor-pointer flex-shrink-0">
+                        <i class="fa-solid fa-bars text-base"></i>
+                    </button>
+                    <div>
+                        <h1 class="font-black text-slate-900 text-xl md:text-2xl tracking-tight">Buku Kas Harian</h1>
+                        <p class="text-xs text-slate-500 font-medium">Catat pemasukan dan pengeluaran operasional toko.</p>
+                    </div>
+                </div>
+
+                <!-- Tombol Pop-up Tambah Kas Baru -->
+                <button onclick="openCashModal()" class="bg-slate-900 hover:bg-blue-950 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 cursor-pointer self-start sm:self-auto">
+                    <i class="fa-solid fa-plus text-white"></i>
+                    <span>Catat Kas</span>
+                </button>
+            </div>
+
+            <!-- Date Picker Ringkas & Reset Bar -->
+            <div class="flex items-center justify-between gap-3 mb-5 flex-shrink-0">
+                <div onclick="openCalendarModal()" class="w-fit bg-white border border-slate-200 shadow-sm rounded-2xl px-4 py-2.5 flex items-center gap-3 hover:border-slate-400 transition cursor-pointer select-none">
+                    <span id="date-picker-display" class="font-black text-slate-800 text-xs tracking-wide">--/--/----</span>
+                    <i class="fa-regular fa-calendar text-slate-800 text-sm"></i>
+                </div>
+
+                <button onclick="resetTodayCashFlow()" class="bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold px-3.5 py-2.5 rounded-2xl transition flex items-center gap-1.5 shadow-sm cursor-pointer flex-shrink-0">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>Reset</span>
+                </button>
+            </div>
+
+            <!-- Card Informasi Saldo / Mutasi Hari Ini -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4 mb-5 flex-shrink-0">
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] font-bold text-black uppercase tracking-wider">Total Pemasukan</p>
+                        <h3 id="total-income" class="text-xl font-black text-emerald-600 mt-0.5">Rp 0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-arrow-down"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] font-bold text-black uppercase tracking-wider">Total Pengeluaran</p>
+                        <h3 id="total-expense" class="text-xl font-black text-rose-600 mt-0.5">Rp 0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-lg font-bold">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </div>
+                </div>
+
+                <div class="bg-slate-900 text-white p-4 rounded-2xl shadow-md flex items-center justify-between">
+                    <div>
+                        <p class="text-[11px] font-bold text-white uppercase tracking-wider">Saldo Kas Hari Ini</p>
+                        <h3 id="net-balance" class="text-xl font-black text-white mt-0.5">Rp 0</h3>
+                    </div>
+                    <div class="w-10 h-10 rounded-xl bg-slate-800 text-white flex items-center justify-center text-lg font-bold border border-slate-700">
+                        <i class="fa-solid fa-wallet text-white"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AREA TABEL RIWAYAT KAS -->
+            <div class="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden flex flex-col mb-8 flex-shrink-0">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs text-slate-600 min-w-[500px]">
+                        <thead class="bg-slate-900 text-white uppercase font-extrabold border-b border-slate-800">
+                            <tr>
+                                <th class="py-3.5 px-4">Waktu</th>
+                                <th class="py-3.5 px-4">Keterangan</th>
+                                <th class="py-3.5 px-4 text-center">Jenis</th>
+                                <th class="py-3.5 px-4 text-right">Nominal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cash-table-body" class="divide-y divide-slate-100 font-medium">
+                            <tr>
+                                <td colspan="4" class="py-8 text-center text-slate-400">Memuat transaksi kas...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- ==================== 4. MODAL EDIT PROFIL & PASSWORD ==================== -->
+    <div id="profileModal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                <h3 class="text-base font-black text-slate-900 flex items-center gap-2">
+                    <i class="fa-solid fa-user-gear text-[#800020]"></i> Pengaturan Akun
+                </h3>
+                <button type="button" onclick="closeProfileModal()" class="w-8 h-8 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-800 flex items-center justify-center transition text-lg font-bold cursor-pointer">&times;</button>
+            </div>
+            
+            <!-- Form 1: Ubah Nama -->
+            <div class="mb-5">
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Ubah Nama Profil</h4>
+                <form onsubmit="updateProfileName(event)" class="space-y-2.5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Nama Lengkap Baru</label>
+                        <input type="text" id="newNameInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <button type="submit" class="bg-[#800020] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-900 transition w-full cursor-pointer shadow-sm">
+                        Simpan Nama Baru
+                    </button>
+                </form>
+            </div>
+
+            <hr class="my-4 border-slate-100">
+
+            <!-- Form 2: Ubah Password -->
+            <div>
+                <h4 class="text-xs font-extrabold text-slate-700 uppercase tracking-wider mb-2">Ganti Password</h4>
+                <form onsubmit="updatePassword(event)" class="space-y-2.5">
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Password Lama</label>
+                        <input type="password" id="currentPasswordInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-500 font-semibold mb-1">Password Baru</label>
+                        <input type="password" id="newPasswordInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
+                    </div>
+                    <button type="submit" class="bg-slate-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-slate-800 transition w-full cursor-pointer shadow-sm">
+                        Ubah Password
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 5. MODAL MAROON CUSTOM CALENDAR ==================== -->
+    <div id="calendar-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center z-50 p-4">
+        <div class="bg-[#18181b] text-white rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-rose-950/50 flex flex-col animate-in fade-in zoom-in duration-150">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="font-bold text-base text-zinc-100">Set Date</h3>
+                <button type="button" onclick="closeCalendarModal()" class="text-zinc-500 hover:text-white text-xl font-bold cursor-pointer">&times;</button>
+            </div>
+
+            <div class="flex justify-between items-center mb-6">
+                <button type="button" onclick="goToToday()" class="text-xs font-semibold text-zinc-400 hover:text-white transition cursor-pointer">Today</button>
+                <span id="cal-month-year" class="font-bold text-base tracking-wide text-zinc-100">January 2028</span>
+                <div class="flex gap-4">
+                    <button type="button" onclick="changeMonth(-1)" class="text-zinc-400 hover:text-white text-sm cursor-pointer"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button type="button" onclick="changeMonth(1)" class="text-zinc-400 hover:text-white text-sm cursor-pointer"><i class="fa-solid fa-chevron-right"></i></button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-7 text-center text-xs font-semibold text-zinc-400 mb-3">
+                <div>Sun</div>
+                <div>Mon</div>
+                <div>Tue</div>
+                <div>Wed</div>
+                <div>Thu</div>
+                <div>Fri</div>
+                <div>Sat</div>
+            </div>
+
+            <div id="cal-dates-grid" class="grid grid-cols-7 gap-y-2 text-center text-sm font-medium mb-8"></div>
+
+            <button type="button" onclick="confirmDateSelection()" class="w-full bg-[#800020] hover:bg-[#660019] text-white font-bold py-3.5 rounded-full shadow-lg shadow-rose-950/50 transition flex items-center justify-center gap-2 cursor-pointer text-sm">
+                <span>Set Date</span>
+                <i class="fa-solid fa-check text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 6. MODAL POP-UP CATAT TRANSAKSI KAS ==================== -->
+    <div id="cash-modal" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-in fade-in zoom-in duration-150">
+            <div class="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-900 text-white">
+                <h3 class="font-black text-sm flex items-center gap-2">
+                    <i class="fa-solid fa-wallet text-white"></i> Catat Transaksi Kas
+                </h3>
+                <button type="button" onclick="closeCashModal()" class="text-slate-400 hover:text-white font-bold text-lg cursor-pointer">&times;</button>
+            </div>
+
+            <form id="cashFlowForm" onsubmit="saveCashFlow(event)" class="p-5 space-y-4 bg-white">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Jenis Kas *</label>
+                    <select id="cash-type" required class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                        <option value="IN">Pemasukan (IN)</option>
+                        <option value="OUT">Pengeluaran (OUT)</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Nominal (Rp) *</label>
+                    <input type="number" id="cash-amount" required placeholder="0" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1">Keterangan Transaksi *</label>
+                    <input type="text" id="cash-description" required placeholder="Contoh: Bayar Listrik / Penjualan Manual" class="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-base font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-800">
+                </div>
+
+                <div class="pt-3 border-t border-slate-100 flex gap-2 justify-end">
+                    <button type="button" onclick="closeCashModal()" class="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold rounded-xl transition cursor-pointer">Batal</button>
+                    <button type="submit" class="px-5 py-2.5 bg-slate-900 hover:bg-blue-950 text-white text-xs font-bold rounded-xl shadow-md transition cursor-pointer">Simpan Kas</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Script Handling Engine Buku Kas & Custom Calendar -->
+    <script>
+        let currentSelectedDate = new Date();
+        let calViewingMonth = currentSelectedDate.getMonth();
+        let calViewingYear = currentSelectedDate.getFullYear();
+        let tempSelectedDate = new Date(currentSelectedDate);
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+        function toggleMobileMenu() {
+            const drawer = document.getElementById('drawer-menu');
+            const backdrop = document.getElementById('drawer-backdrop');
+
+            if (!drawer || !backdrop) return;
+
+            const isHidden = drawer.classList.contains('-translate-x-full');
+
+            if (isHidden) {
+                backdrop.classList.remove('hidden');
+                requestAnimationFrame(() => {
+                    backdrop.classList.add('opacity-100');
+                    backdrop.classList.remove('opacity-0');
+                    drawer.classList.remove('-translate-x-full');
+                });
+            } else {
+                drawer.classList.add('-translate-x-full');
+                backdrop.classList.remove('opacity-100');
+                backdrop.classList.add('opacity-0');
+                setTimeout(() => {
+                    backdrop.classList.add('hidden');
+                }, 300);
+            }
+        }
+
+        // --- HANDLER MODAL PROFIL & PASSWORD ---
+        function openProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                const currentName = document.getElementById('user-name')?.innerText || '';
+                document.getElementById('newNameInput').value = currentName.trim();
+            }
+        }
+
+        function closeProfileModal() {
+            const modal = document.getElementById('profileModal');
+            if (modal) {
+                modal.classList.add('hidden');
+                modal.classList.remove('flex');
+            }
+        }
+
+        async function updateProfileName(e) {
+            e.preventDefault();
+            const newName = document.getElementById('newNameInput').value;
+
+            try {
+                const res = await fetch('/api/auth/update-profile', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Sukses', data.message, 'dark');
+                    closeProfileModal();
+                    fetchCurrentUser();
+                } else {
+                    showToast('Gagal', data.message, 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Terjadi kesalahan saat memperbarui nama.', 'error');
+            }
+        }
+
+        async function updatePassword(e) {
+            e.preventDefault();
+            const current_password = document.getElementById('currentPasswordInput').value;
+            const new_password = document.getElementById('newPasswordInput').value;
+
+            try {
+                const res = await fetch('/api/auth/update-password', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ current_password, new_password })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showToast('Sukses', data.message, 'dark');
+                    closeProfileModal();
+                    document.getElementById('currentPasswordInput').value = '';
+                    document.getElementById('newPasswordInput').value = '';
+                } else {
+                    showToast('Gagal', data.message, 'error');
+                }
+            } catch (err) {
+                showToast('Error', 'Terjadi kesalahan saat mengubah password.', 'error');
+            }
+        }
+
+        function showToast(title = 'Notification', message = '', type = 'success') {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            let bgClass = "bg-white/95 text-slate-800 border-slate-200/90 shadow-slate-200/60";
+            let titleColor = "text-slate-900";
+            let messageColor = "text-slate-500";
+            let timeColor = "text-slate-400";
+            let iconBg = "bg-emerald-500 text-white";
+            let iconSymbol = '<i class="fa-solid fa-check text-xs"></i>';
+
+            if (type === 'dark') {
+                bgClass = "bg-slate-900/95 text-white border-slate-800 shadow-slate-950/40";
+                titleColor = "text-white";
+                messageColor = "text-slate-300";
+                timeColor = "text-slate-400";
+                iconBg = "bg-slate-800 text-sky-white border border-slate-700";
+                iconSymbol = '<i class="fa-solid fa-shop text-white"></i>';
+            } else if (type === 'error') {
+                iconBg = "bg-rose-500 text-white";
+                iconSymbol = '<i class="fa-solid fa-xmark text-xs"></i>';
+            }
+
+            const toast = document.createElement('div');
+            toast.className = `pointer-events-auto flex items-center gap-3.5 p-3.5 rounded-2xl border ${bgClass} shadow-xl backdrop-blur-md transform transition-all duration-300 translate-y-[-12px] opacity-0 scale-95`;
+
+            toast.innerHTML = `
+                <div class="w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center font-black flex-shrink-0 shadow-sm">${iconSymbol}</div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-center mb-0.5">
+                        <h4 class="font-black text-xs tracking-tight ${titleColor}">${title}</h4>
+                        <span class="text-[10px] font-bold ${timeColor}">Baru saja</span>
+                    </div>
+                    <p class="text-xs ${messageColor} font-medium leading-snug line-clamp-2">${message}</p>
+                </div>
+            `;
+
+            container.appendChild(toast);
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-[-12px]', 'opacity-0', 'scale-95');
+                toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+            });
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
+                toast.classList.add('translate-y-[-12px]', 'opacity-0', 'scale-95');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchCurrentUser();
+            updateDisplayAndLoad();
+        });
+
+        async function fetchCurrentUser() {
+            try {
+                const res = await fetch('/api/auth/me');
+                const data = await res.json();
+                if (data && data.name) {
+                    const initials = data.name.substring(0, 2).toUpperCase();
+                    document.getElementById('user-name').innerText = data.name;
+                    document.getElementById('user-role').innerText = data.role || 'Active Account';
+                    document.getElementById('user-avatar').innerText = initials;
+
+                    document.getElementById('mobile-user-name').innerText = data.name;
+                    document.getElementById('mobile-user-role').innerText = data.role || 'Active Account';
+                    document.getElementById('mobile-user-avatar').innerText = initials;
+                }
+            } catch (e) {}
+        }
+
+        /* ==================== ENGINE KALENDER CUSTOM ==================== */
+        function openCalendarModal() {
+            tempSelectedDate = new Date(currentSelectedDate);
+            calViewingMonth = tempSelectedDate.getMonth();
+            calViewingYear = tempSelectedDate.getFullYear();
+            renderCalendar();
+            document.getElementById('calendar-modal').classList.remove('hidden');
+            document.getElementById('calendar-modal').classList.add('flex');
+        }
+
+        function closeCalendarModal() {
+            document.getElementById('calendar-modal').classList.add('hidden');
+            document.getElementById('calendar-modal').classList.remove('flex');
+        }
+
+        function renderCalendar() {
+            document.getElementById('cal-month-year').innerText = `${monthNames[calViewingMonth]} ${calViewingYear}`;
+            const grid = document.getElementById('cal-dates-grid');
+            grid.innerHTML = '';
+
+            const firstDay = new Date(calViewingYear, calViewingMonth, 1).getDay();
+            const daysInMonth = new Date(calViewingYear, calViewingMonth + 1, 0).getDate();
+            const prevMonthDays = new Date(calViewingYear, calViewingMonth, 0).getDate();
+
+            for (let i = firstDay - 1; i >= 0; i--) {
+                grid.innerHTML += `<div class="text-zinc-600 flex items-center justify-center h-9">${prevMonthDays - i}</div>`;
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const isSelected = tempSelectedDate.getDate() === d &&
+                                   tempSelectedDate.getMonth() === calViewingMonth &&
+                                   tempSelectedDate.getFullYear() === calViewingYear;
+
+                if (isSelected) {
+                    grid.innerHTML += `
+                        <div class="flex items-center justify-center">
+                            <button type="button" onclick="selectCalDate(${d})" class="w-9 h-9 rounded-full bg-[#800020] text-white font-bold flex items-center justify-center shadow-lg shadow-rose-950/60 cursor-pointer">
+                                ${d}
+                            </button>
+                        </div>`;
+                } else {
+                    grid.innerHTML += `
+                        <div class="flex items-center justify-center">
+                            <button type="button" onclick="selectCalDate(${d})" class="w-9 h-9 rounded-full text-zinc-200 hover:bg-zinc-800 transition flex items-center justify-center cursor-pointer">
+                                ${d}
+                            </button>
+                        </div>`;
+                }
+            }
+
+            const totalSlots = firstDay + daysInMonth;
+            const remainingSlots = (42 - totalSlots) % 7;
+            for (let i = 1; i <= remainingSlots; i++) {
+                grid.innerHTML += `<div class="text-zinc-600 flex items-center justify-center h-9">${i}</div>`;
+            }
+        }
+
+        function selectCalDate(day) {
+            tempSelectedDate = new Date(calViewingYear, calViewingMonth, day);
+            renderCalendar();
+        }
+
+        function changeMonth(delta) {
+            calViewingMonth += delta;
+            if (calViewingMonth < 0) {
+                calViewingMonth = 11;
+                calViewingYear--;
+            } else if (calViewingMonth > 11) {
+                calViewingMonth = 0;
+                calViewingYear++;
+            }
+            renderCalendar();
+        }
+
+        function goToToday() {
+            const today = new Date();
+            tempSelectedDate = new Date(today);
+            calViewingMonth = today.getMonth();
+            calViewingYear = today.getFullYear();
+            renderCalendar();
+        }
+
+        function confirmDateSelection() {
+            currentSelectedDate = new Date(tempSelectedDate);
+            closeCalendarModal();
+            updateDisplayAndLoad();
+        }
+
+        function updateDisplayAndLoad() {
+            const y = currentSelectedDate.getFullYear();
+            const m = String(currentSelectedDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentSelectedDate.getDate()).padStart(2, '0');
+
+            document.getElementById('date-picker-display').innerText = `${d}/${m}/${y}`;
+            loadCashFlow();
+        }
+
+        /* ==================== BUKU KAS ENGINE ==================== */
+        function openCashModal() {
+            document.getElementById('cashFlowForm').reset();
+            document.getElementById('cash-modal').classList.remove('hidden');
+            document.getElementById('cash-modal').classList.add('flex');
+            setTimeout(() => {
+                document.getElementById('cash-amount').focus();
+            }, 50);
+        }
+
+        function closeCashModal() {
+            document.getElementById('cash-modal').classList.add('hidden');
+            document.getElementById('cash-modal').classList.remove('flex');
+        }
+
+        async function loadCashFlow() {
+            const tbody = document.getElementById('cash-table-body');
+            const y = currentSelectedDate.getFullYear();
+            const m = String(currentSelectedDate.getMonth() + 1).padStart(2, '0');
+            const d = String(currentSelectedDate.getDate()).padStart(2, '0');
+            const formattedDate = `${y}-${m}-${d}`;
+
+            try {
+                const res = await fetch(`/api/cash-flow?date=${formattedDate}&_t=${Date.now()}`);
+                const result = await res.json();
+                
+                const rows = result.data || result || [];
+
+                let totalIncome = 0;
+                let totalExpense = 0;
+
+                tbody.innerHTML = '';
+
+                if (rows.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-400">Tidak ada transaksi kas pada tanggal ini.</td></tr>`;
+                } else {
+                    rows.forEach(item => {
+                        const amount = Math.abs(parseFloat(item.amount) || 0);
+                        const typeStr = (item.type || '').toLowerCase();
+                        const isExpense = ['out', 'keluar', 'pengeluaran'].includes(typeStr);
+
+                        if (isExpense) {
+                            totalExpense += amount;
+                        } else {
+                            totalIncome += amount;
+                        }
+
+                        const timeStr = item.created_at ? new Date(item.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '-';
+
+                        tbody.innerHTML += `
+                            <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                                <td class="py-3 px-4 font-bold text-slate-500">${timeStr}</td>
+                                <td class="py-3 px-4 font-bold text-slate-800">${item.description || 'Transaksi Kas'}</td>
+                                <td class="py-3 px-4 text-center">
+                                    <span class="px-2.5 py-1 rounded-full text-[10px] font-black ${isExpense ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
+                                        ${isExpense ? 'KELUAR' : 'MASUK'}
+                                    </span>
+                                </td>
+                                <td class="py-3 px-4 text-right font-black ${isExpense ? 'text-rose-600' : 'text-emerald-600'}">
+                                    ${isExpense ? '-' : '+'} Rp ${amount.toLocaleString('id-ID')}
+                                </td>
+                            </tr>
+                        `;
+                    });
+                }
+
+                const netBalance = totalIncome - totalExpense;
+
+                document.getElementById('total-income').innerText = `Rp ${totalIncome.toLocaleString('id-ID')}`;
+                document.getElementById('total-expense').innerText = `Rp ${totalExpense.toLocaleString('id-ID')}`;
+                document.getElementById('net-balance').innerText = `Rp ${netBalance.toLocaleString('id-ID')}`;
+
+            } catch (err) {
+                tbody.innerHTML = `<tr><td colspan="4" class="py-6 text-center text-rose-500 font-bold">Gagal mengambil data buku kas.</td></tr>`;
+            }
+        }
+
+        async function saveCashFlow(e) {
+            e.preventDefault();
+            const payload = {
+                type: document.getElementById('cash-type').value,
+                amount: parseFloat(document.getElementById('cash-amount').value) || 0,
+                description: document.getElementById('cash-description').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/cash-flow', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast('Berhasil', 'Transaksi kas berhasil dicatat!', 'dark');
+                    closeCashModal();
+                    loadCashFlow();
+                } else {
+                    showToast('Gagal Simpan', result.message || 'Gagal mencatat kas.', 'error');
+                }
+            } catch (err) {
+                showToast('Error Server', 'Tidak dapat terhubung ke server.', 'error');
+            }
+        }
+
+        async function resetTodayCashFlow() {
+            if (!confirm('Apakah Anda yakin ingin mereset seluruh transaksi kas hari ini?')) return;
+
+            try {
+                const res = await fetch('/api/cash-flow/reset-today', { method: 'DELETE' });
+                const result = await res.json();
+
+                if (result.success) {
+                    showToast('Ter-Reset', result.message || 'Transaksi kas hari ini telah di-reset.', 'dark');
+                    loadCashFlow();
+                } else {
+                    showToast('Gagal Reset', result.message || 'Gagal mereset kas.', 'error');
+                }
+            } catch (err) {
+                showToast('Error Server', 'Tidak dapat terhubung ke server.', 'error');
+            }
+        }
+    </script>
+</body>
+</html>
