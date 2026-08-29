@@ -12,6 +12,7 @@
     "dotenv": "^16.6.1",
     "ejs": "^3.1.10",
     "express": "^4.22.2",
+    "express-mysql-session": "^3.0.3",
     "express-session": "^1.19.0",
     "mysql2": "^3.23.2"
   },

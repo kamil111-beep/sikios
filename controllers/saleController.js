@@ -95,7 +95,7 @@ exports.createSale = async (req, res) => {
         // 4. Catat ke Buku Kas atau Piutang (Menyertakan user_id)
         if (payment_method !== 'Piutang') {
             await connection.query(
-                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'IN', ?, ?)`,
+                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'in', ?, ?)`, // 🟢 FIX: Diubah dari 'IN' menjadi 'in'
                 [userId, total_amount, `Penjualan Invoice ${invoice_number}`]
             );
         } else {
