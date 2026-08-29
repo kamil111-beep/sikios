@@ -14,7 +14,7 @@ const debtController = require('../controllers/debtController');
 const receivableController = require('../controllers/receivableController');
 const reportController = require('../controllers/reportController');
 
-// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login sebelum mengakses API
+// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login sebelum mengakses API (DIPERBAIKI AMAN SESSION)
 const requireAuthApi = async (req, res, next) => {
     try {
         if (req.session && req.session.user && req.session.user.id) {
@@ -352,10 +352,10 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
         const { date } = req.query;
         const userId = req.session.user.id;
         
-        // Ambil tanggal target (YYYY-MM-DD). Jika tidak ada parameter date, gunakan tanggal server saat ini
+        // Format tanggal target YYYY-MM-DD
         const targetDate = date || new Date().toISOString().split('T')[0];
 
-        // Query fleksibel membaca transaction_date ATAU created_at agar tidak terlewat
+        // Query fleksibel membaca transaction_date ATAU created_at
         const [rows] = await db.query(
             `SELECT * FROM cash_flows 
              WHERE user_id = ? 
@@ -371,7 +371,7 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
             const amount = parseFloat(item.amount) || 0;
             const typeStr = String(item.type || '').trim().toLowerCase();
 
-            // Deteksi tipe pengeluaran ('Keluar', 'out', 'pengeluaran') atau jika amount bernilai negatif
+            // Deteksi tipe pengeluaran ('Keluar', 'out', 'pengeluaran') atau amount bernilai negatif
             if (typeStr === 'out' || typeStr === 'keluar' || typeStr === 'pengeluaran' || amount < 0) {
                 totalExpense += Math.abs(amount);
             } else {
@@ -407,6 +407,7 @@ router.post('/cash-flow', requireAuthApi, async (req, res) => {
         const typeStr = String(type || '').trim().toLowerCase();
         const isExpense = ['out', 'keluar', 'pengeluaran'].includes(typeStr);
         
+        // Simpan jenis standar ('Keluar' atau 'Masuk') sesuai ENUM database
         const dbType = isExpense ? 'Keluar' : 'Masuk';
         const finalAmount = isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
@@ -415,10 +416,10 @@ router.post('/cash-flow', requireAuthApi, async (req, res) => {
             [userId, dbType, finalAmount, description || null]
         );
 
-        res.json({ success: true, message: 'Transaksi kas berhasil dicatat', id: result.insertId });
+        return res.json({ success: true, message: 'Transaksi kas berhasil dicatat', id: result.insertId });
     } catch (error) {
         console.error('Error cash-flow:', error);
-        res.status(500).json({ success: false, message: 'Gagal mencatat kas: ' + error.message });
+        return res.status(500).json({ success: false, message: 'Gagal mencatat kas: ' + error.message });
     }
 });
 
@@ -432,13 +433,13 @@ router.delete('/cash-flow/reset-today', requireAuthApi, async (req, res) => {
             [userId, todayStr]
         );
 
-        res.json({ 
+        return res.json({ 
             success: true, 
             message: `Berhasil mereset ${result.affectedRows} catatan transaksi kas hari ini.` 
         });
     } catch (error) {
         console.error('Error reset cash-flow:', error);
-        res.status(500).json({ 
+        return res.status(500).json({ 
             success: false, 
             message: 'Gagal mereset transaksi kas hari ini: ' + error.message 
         });
