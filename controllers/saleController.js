@@ -93,9 +93,9 @@ exports.createSale = async (req, res) => {
 
         // 4. Catat ke Buku Kas atau Piutang
         if (payment_method !== 'Piutang') {
-            // 🟢 Menggunakan 'pemasukan' (format umum ENUM kasir Bahasa Indonesia)
+            // 🟢 TERHUBUNG PERSIS ENUM DATABASE: 'Masuk'
             await connection.query(
-                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'pemasukan', ?, ?)`,
+                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'Masuk', ?, ?)`,
                 [userId, total_amount, `Penjualan Invoice ${invoice_number}`]
             );
         } else {
