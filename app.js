@@ -1,3 +1,6 @@
+// 🟢 Set Timezone Global ke Asia/Jakarta (WIB) untuk Vercel Serverless
+process.env.TZ = 'Asia/Jakarta';
+
 // Import environment variables dari file .env
 require('dotenv').config();
 
