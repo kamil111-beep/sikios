@@ -14,12 +14,16 @@ const debtController = require('../controllers/debtController');
 const receivableController = require('../controllers/receivableController');
 const reportController = require('../controllers/reportController');
 
-// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login sebelum mengakses API
-const requireAuthApi = (req, res, next) => {
-    if (req.session && req.session.user) {
-        return next();
+// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login sebelum mengakses API (DIPERBAIKI)
+const requireAuthApi = async (req, res, next) => {
+    try {
+        if (req.session && req.session.user && req.session.user.id) {
+            return next();
+        }
+        return res.status(401).json({ success: false, message: 'Unauthorized. Silakan login terlebih dahulu.' });
+    } catch (err) {
+        return res.status(401).json({ success: false, message: 'Unauthorized. Silakan login terlebih dahulu.' });
     }
-    return res.status(401).json({ success: false, message: 'Unauthorized. Silakan login terlebih dahulu.' });
 };
 
 // ==========================================
@@ -69,7 +73,7 @@ router.put('/auth/update-profile', requireAuthApi, async (req, res) => {
     }
 });
 
-// 🟢 PUT Handler Ubah Password (DIPERBAIKI & LEBIH FLEKSIBEL)
+// 🟢 PUT Handler Ubah Password
 router.put('/auth/update-password', requireAuthApi, async (req, res) => {
     try {
         const userId = req.session.user.id;
@@ -79,7 +83,6 @@ router.put('/auth/update-password', requireAuthApi, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Password lama dan password baru wajib diisi!' });
         }
 
-        // Ambil data user dari database
         const [users] = await db.query('SELECT password FROM users WHERE id = ? LIMIT 1', [userId]);
         if (!users || users.length === 0) {
             return res.status(404).json({ success: false, message: 'User tidak ditemukan.' });
@@ -89,7 +92,6 @@ router.put('/auth/update-password', requireAuthApi, async (req, res) => {
         const inputCurrentPassword = String(current_password || '').trim();
         let isMatch = false;
 
-        // Verifikasi password lama (Bcrypt Hash vs Plaintext)
         if (dbPassword.startsWith('$2a$') || dbPassword.startsWith('$2b$') || dbPassword.startsWith('$2y$')) {
             try {
                 isMatch = await bcrypt.compare(inputCurrentPassword, dbPassword);
@@ -97,7 +99,6 @@ router.put('/auth/update-password', requireAuthApi, async (req, res) => {
                 isMatch = false;
             }
         } else {
-            // Pencocokan langsung jika password di database belum di-hash
             isMatch = (inputCurrentPassword === dbPassword);
         }
 
@@ -105,7 +106,6 @@ router.put('/auth/update-password', requireAuthApi, async (req, res) => {
             return res.status(400).json({ success: false, message: 'Password lama yang Anda masukkan salah!' });
         }
 
-        // Hash password baru & simpan ke database
         const hashedNewPassword = await bcrypt.hash(new_password.trim(), 10);
         await db.query('UPDATE users SET password = ? WHERE id = ?', [hashedNewPassword, userId]);
 
@@ -344,7 +344,7 @@ router.post('/reports/reset', requireAuthApi, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT BUKU KAS (CASH FLOW) - HARIAN & KALENDER
+// ENDPOINT BUKU KAS (CASH FLOW)
 // ==========================================
 
 router.get('/cash-flow', requireAuthApi, async (req, res) => {
@@ -367,7 +367,6 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
             const amount = parseFloat(item.amount) || 0;
             const typeStr = String(item.type || '').trim().toLowerCase();
 
-            // Deteksi jika tipenya pengeluaran atau jika amount di database bernilai negatif
             if (typeStr === 'out' || typeStr === 'keluar' || typeStr === 'pengeluaran' || amount < 0) {
                 totalExpense += Math.abs(amount);
             } else {
@@ -400,12 +399,11 @@ router.post('/cash-flow', requireAuthApi, async (req, res) => {
         const typeStr = String(type || '').trim().toLowerCase();
         const isExpense = ['out', 'keluar', 'pengeluaran'].includes(typeStr);
         
-        // Simpan jenis standar ('Keluar' atau 'Masuk') dan ubah amount jadi negatif jika pengeluaran
         const dbType = isExpense ? 'Keluar' : 'Masuk';
         const finalAmount = isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
         const [result] = await db.query(
-            `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, ?, ?, ?)`,
+            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, ?, ?, ?, NOW())`,
             [userId, dbType, finalAmount, description || null]
         );
 
@@ -481,21 +479,35 @@ router.post('/receivables/:id/pay', requireAuthApi, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.session.user.id;
-        const { pay_amount } = req.body;
-        const payment = parseFloat(pay_amount) || 0;
+        const { pay_amount, payment_amount } = req.body;
+        
+        // Fleksibel membaca variabel pay_amount atau payment_amount dari frontend
+        const payment = parseFloat(pay_amount || payment_amount) || 0;
 
-        const [rows] = await db.query('SELECT remaining_amount FROM receivables WHERE id = ? AND user_id = ?', [id, userId]);
+        if (payment <= 0) {
+            return res.status(400).json({ success: false, message: 'Nominal pembayaran harus lebih besar dari 0' });
+        }
+
+        const [rows] = await db.query('SELECT customer_name, remaining_amount FROM receivables WHERE id = ? AND user_id = ?', [id, userId]);
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Data piutang tidak ditemukan' });
         }
 
         const currentRemaining = parseFloat(rows[0].remaining_amount);
+        const customerName = rows[0].customer_name || 'Konsumen';
         const newRemaining = Math.max(0, currentRemaining - payment);
-        const newStatus = newRemaining === 0 ? 'Lunas' : 'Sebagian';
+        const newStatus = newRemaining === 0 ? 'Lunas' : 'Belum Lunas';
 
+        // Update sisa piutang di database
         await db.query(
             'UPDATE receivables SET remaining_amount = ?, status = ? WHERE id = ? AND user_id = ?',
             [newRemaining, newStatus, id, userId]
+        );
+
+        // 🟢 Otomatis catat Kas Masuk ke cash_flows dengan ENUM 'Masuk'
+        await db.query(
+            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Masuk', ?, ?, NOW())`,
+            [userId, payment, `Terima cicilan piutang dari ${customerName}`]
         );
 
         res.json({ success: true, message: 'Pembayaran piutang berhasil dicatat' });
@@ -559,21 +571,32 @@ router.post('/debts/:id/pay', requireAuthApi, async (req, res) => {
     try {
         const { id } = req.params;
         const userId = req.session.user.id;
-        const { pay_amount } = req.body;
-        const payment = parseFloat(pay_amount) || 0;
+        const { pay_amount, payment_amount } = req.body;
+        const payment = parseFloat(pay_amount || payment_amount) || 0;
 
-        const [rows] = await db.query('SELECT remaining_amount FROM debts WHERE id = ? AND user_id = ?', [id, userId]);
+        if (payment <= 0) {
+            return res.status(400).json({ success: false, message: 'Nominal pembayaran harus lebih besar dari 0' });
+        }
+
+        const [rows] = await db.query('SELECT supplier_name, remaining_amount FROM debts WHERE id = ? AND user_id = ?', [id, userId]);
         if (rows.length === 0) {
             return res.status(404).json({ success: false, message: 'Data hutang tidak ditemukan' });
         }
 
         const currentRemaining = parseFloat(rows[0].remaining_amount);
+        const supplierName = rows[0].supplier_name || 'Supplier';
         const newRemaining = Math.max(0, currentRemaining - payment);
-        const newStatus = newRemaining === 0 ? 'Lunas' : 'Sebagian';
+        const newStatus = newRemaining === 0 ? 'Lunas' : 'Belum Lunas';
 
         await db.query(
             'UPDATE debts SET remaining_amount = ?, status = ? WHERE id = ? AND user_id = ?',
             [newRemaining, newStatus, id, userId]
+        );
+
+        // 🟢 Otomatis catat Kas Keluar ke cash_flows dengan ENUM 'Keluar'
+        await db.query(
+            `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) VALUES (?, 'Keluar', ?, ?, NOW())`,
+            [userId, -Math.abs(payment), `Bayar hutang supplier ke ${supplierName}`]
         );
 
         res.json({ success: true, message: 'Pembayaran hutang supplier berhasil dicatat' });
