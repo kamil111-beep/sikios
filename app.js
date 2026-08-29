@@ -2,28 +2,33 @@
 require('dotenv').config();
 
 const express = require('express');
-const session = require('express-session'); // 🟢 DITAMBAHKAN
+const session = require('express-session');
 const path = require('path');
 
 // Inisialisasi aplikasi Express
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 🟢 PERBAIKAN VERCEL 1: Aktifkan trust proxy agar Vercel mengenalkan HTTPS Cookie
+app.set('trust proxy', 1);
+
 // 1. Setting View Engine (EJS)
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
 // 2. Middleware Parsing Request Data & Asset Statis
-app.use(express.json()); // Untuk membaca request body berupa JSON
-app.use(express.urlencoded({ extended: true })); // Untuk membaca request body dari Form
-app.use(express.static(path.join(__dirname, 'public'))); // Folder untuk file CSS, JS, dan Gambar
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// 🟢 2.5. Konfigurasi Express Session (Disimpan sebelum routing)
+// 🟢 PERBAIKAN VERCEL 2: Konfigurasi Cookie Session Aman untuk Cloud & HTTPS
 app.use(session({
     secret: process.env.SESSION_SECRET || 'sikios_secret_key_12345',
     resave: false,
     saveUninitialized: false,
     cookie: { 
+        secure: process.env.NODE_ENV === 'production', // Menggunakan secure cookie saat di Vercel
+        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
         maxAge: 24 * 60 * 60 * 1000 // Session aktif selama 24 Jam
     }
 }));
@@ -42,3 +47,6 @@ app.listen(PORT, () => {
     console.log(`🚀 Server SIKIOS Berjalan di http://localhost:${PORT}`);
     console.log(`===========================================`);
 });
+
+// Export app untuk Vercel Serverless Function
+module.exports = app;
