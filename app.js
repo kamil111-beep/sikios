@@ -9,39 +9,40 @@ const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// 🟢 PERBAIKAN VERCEL 1: Aktifkan trust proxy agar Vercel mengenalkan HTTPS Cookie
+// 1. Trust Proxy wajib untuk Vercel / Cloud HTTPS
 app.set('trust proxy', 1);
 
-// 1. Setting View Engine (EJS)
+// 2. Setting View Engine (EJS)
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// 2. Middleware Parsing Request Data & Asset Statis
+// 3. Middleware Parsing Request Data & Asset Statis
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🟢 PERBAIKAN VERCEL 2: Konfigurasi Cookie Session Aman untuk Cloud & HTTPS
+// 4. Konfigurasi Session Cookie Stabil untuk Vercel
 app.use(session({
     secret: process.env.SESSION_SECRET || 'sikios_secret_key_12345',
     resave: false,
     saveUninitialized: false,
+    proxy: true,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production', // Menggunakan secure cookie saat di Vercel
-        sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-        maxAge: 24 * 60 * 60 * 1000 // Session aktif selama 24 Jam
+        secure: true,        // Wajib true di Vercel (HTTPS)
+        sameSite: 'none',    // Mencegah cookie hilang saat request POST/API
+        maxAge: 24 * 60 * 60 * 1000 // Session aktif 24 jam
     }
 }));
 
-// 3. Import File Routing
+// 5. Import File Routing
 const webRoutes = require('./routes/web');
 const apiRoutes = require('./routes/api');
 
-// 4. Registrasi Route Aplikasi
+// 6. Registrasi Route Aplikasi
 app.use('/api', apiRoutes);    // REST API Endpoint
 app.use('/', webRoutes);       // Web Views EJS
 
-// 5. Jalankan Server
+// 7. Jalankan Server
 app.listen(PORT, () => {
     console.log(`===========================================`);
     console.log(`🚀 Server SIKIOS Berjalan di http://localhost:${PORT}`);
