@@ -9,7 +9,7 @@ exports.createSale = async (req, res) => {
     try {
         await connection.beginTransaction();
 
-        // 🟢 Ambil user_id dari sesi login yang sedang aktif secara aman
+        // 🟢 Ambil user_id dari sesi login secara aman
         const userId = req.session && req.session.user ? req.session.user.id : null;
         if (!userId) {
             throw new Error('Sesi login kedaluwarsa atau tidak valid. Silakan login kembali.');
@@ -42,7 +42,6 @@ exports.createSale = async (req, res) => {
             }
 
             const sellingPrice = parseFloat(item.price || product.selling_price) || 0;
-            // Ambil harga beli (modal). Jika 0, gunakan fallback 70% dari harga jual
             let purchasePrice = parseFloat(product.purchase_price) || 0;
             if (purchasePrice === 0) {
                 purchasePrice = sellingPrice * 0.7;
@@ -69,7 +68,7 @@ exports.createSale = async (req, res) => {
 
         const invoice_number = `INV-${Date.now()}`;
 
-        // 2. Insert ke tabel `sales` (Menyertakan user_id)
+        // 2. Insert ke tabel `sales`
         const [saleResult] = await connection.query(
             `INSERT INTO sales (user_id, customer_id, invoice_number, total_amount, paid_amount, change_amount, payment_method, transaction_date) 
              VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
@@ -78,7 +77,7 @@ exports.createSale = async (req, res) => {
 
         const saleId = saleResult.insertId;
 
-        // 3. Insert Detail Barang ke `sale_details` & Potong Stok
+        // 3. Insert Detail Barang & Potong Stok
         for (let item of processedItems) {
             await connection.query(
                 `INSERT INTO sale_details (sale_id, product_id, quantity, purchase_price, selling_price, subtotal) 
@@ -92,10 +91,11 @@ exports.createSale = async (req, res) => {
             );
         }
 
-        // 4. Catat ke Buku Kas atau Piutang (Menyertakan user_id)
+        // 4. Catat ke Buku Kas atau Piutang
         if (payment_method !== 'Piutang') {
+            // 🟢 Menggunakan 'pemasukan' (format umum ENUM kasir Bahasa Indonesia)
             await connection.query(
-                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'in', ?, ?)`, // 🟢 FIX: Diubah dari 'IN' menjadi 'in'
+                `INSERT INTO cash_flows (user_id, type, amount, description) VALUES (?, 'pemasukan', ?, ?)`,
                 [userId, total_amount, `Penjualan Invoice ${invoice_number}`]
             );
         } else {
