@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const bcrypt = require('bcrypt'); // Pastikan package bcrypt sudah terinstall
+const bcrypt = require('bcrypt');
 
 // 1. IMPORT KONEKSI DATABASE
 const db = require('../config/database');
@@ -14,44 +14,43 @@ const debtController = require('../controllers/debtController');
 const receivableController = require('../controllers/receivableController');
 const reportController = require('../controllers/reportController');
 
-// 🟢 MIDDLEWARE GUARD: Memastikan user sudah login dengan Fallback User (Anti Unauthorized)
-const requireAuthApi = async (req, res, next) => {
-    try {
-        if (req.session && req.session.user && req.session.user.id) {
-            return next();
-        }
-        // Fallback aman jika cookie session serverless menggantung di Vercel
-        req.session = req.session || {};
-        req.session.user = { id: 4, name: 'Kios NIPA', role: 'kasir' };
-        return next();
-    } catch (err) {
-        req.session = req.session || {};
-        req.session.user = { id: 4, name: 'Kios NIPA', role: 'kasir' };
+// 🟢 ANTI-CACHE MIDDLEWARE: Memaksa Data Selalu Real-Time (Cegah Status 304)
+router.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    res.setHeader('Surrogate-Control', 'no-store');
+    next();
+});
+
+// 🟢 MIDDLEWARE GUARD: Mencegah Kebocoran Data Antar-User
+const requireAuthApi = (req, res, next) => {
+    if (req.session && req.session.user && req.session.user.id) {
         return next();
     }
+    return res.status(401).json({ 
+        success: false, 
+        message: 'Sesi login telah berakhir. Silakan login kembali.' 
+    });
 };
 
 // ==========================================
-// 0. ENDPOINT AUTHENTICATION (LOGIN, REGISTER, LOGOUT & UPDATE PROFIL)
+// 0. ENDPOINT AUTHENTICATION
 // ==========================================
 
-// 🟢 GET Handler Ambil Info User yang Sedang Login (/api/auth/me)
 router.get('/auth/me', requireAuthApi, (req, res) => {
     try {
-        if (req.session && req.session.user) {
-            return res.json({
-                success: true,
-                name: req.session.user.name || 'Admin Kasir',
-                role: req.session.user.role || 'Active Account'
-            });
-        }
-        return res.status(401).json({ success: false, message: 'Unauthorized' });
+        return res.json({
+            success: true,
+            id: req.session.user.id,
+            name: req.session.user.name || 'Admin Kasir',
+            role: req.session.user.role || 'Active Account'
+        });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
     }
 });
 
-// 🟢 PUT Handler Ubah Nama Profil
 router.put('/auth/update-profile', requireAuthApi, async (req, res) => {
     try {
         const userId = req.session.user.id;
@@ -75,7 +74,6 @@ router.put('/auth/update-profile', requireAuthApi, async (req, res) => {
     }
 });
 
-// 🟢 PUT Handler Ubah Password
 router.put('/auth/update-password', requireAuthApi, async (req, res) => {
     try {
         const userId = req.session.user.id;
@@ -118,7 +116,6 @@ router.put('/auth/update-password', requireAuthApi, async (req, res) => {
     }
 });
 
-// 🟢 POST Handler Register User Baru
 router.post('/register', async (req, res) => {
     try {
         const { fullname, username, password } = req.body;
@@ -163,7 +160,6 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// POST Handler Login User / Kasir
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -229,7 +225,6 @@ router.post('/login', async (req, res) => {
     }
 });
 
-// POST Handler Logout User
 router.post('/logout', (req, res) => {
     if (req.session) {
         req.session.destroy((err) => {
@@ -317,7 +312,6 @@ router.post('/reports/reset', requireAuthApi, async (req, res) => {
         const { date } = req.body;
         const userId = req.session.user.id;
         
-        // Format WIB
         const targetDate = date || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         await db.query(`
@@ -350,7 +344,7 @@ router.post('/reports/reset', requireAuthApi, async (req, res) => {
 });
 
 // ==========================================
-// ENDPOINT BUKU KAS (CASH FLOW) - WIB (UTC+7) SINKRON
+// ENDPOINT BUKU KAS (CASH FLOW)
 // ==========================================
 
 router.get('/cash-flow', requireAuthApi, async (req, res) => {
@@ -358,7 +352,6 @@ router.get('/cash-flow', requireAuthApi, async (req, res) => {
         const { date } = req.query;
         const userId = req.session.user.id;
         
-        // Menggunakan waktu WIB sebagai default tanggal target
         const targetDate = date || new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().split('T')[0];
 
         let querySql = `
@@ -430,7 +423,6 @@ router.post('/cash-flow', requireAuthApi, async (req, res) => {
         const dbType = isExpense ? 'Keluar' : 'Masuk';
         const finalAmount = isExpense ? -Math.abs(rawAmount) : Math.abs(rawAmount);
 
-        // 🟢 Simpan dengan konversi jam WIB secara pasti
         const [result] = await db.query(
             `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
              VALUES (?, ?, ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
@@ -534,7 +526,6 @@ router.post('/receivables/:id/pay', requireAuthApi, async (req, res) => {
             [newRemaining, newStatus, id, userId]
         );
 
-        // 🟢 Otomatis catat Kas Masuk ke cash_flows dengan jam WIB
         await db.query(
             `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
              VALUES (?, 'Masuk', ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
@@ -624,7 +615,6 @@ router.post('/debts/:id/pay', requireAuthApi, async (req, res) => {
             [newRemaining, newStatus, id, userId]
         );
 
-        // 🟢 Otomatis catat Kas Keluar ke cash_flows dengan jam WIB
         await db.query(
             `INSERT INTO cash_flows (user_id, type, amount, description, transaction_date) 
              VALUES (?, 'Keluar', ?, ?, DATE_ADD(NOW(), INTERVAL 7 HOUR))`,
