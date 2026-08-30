@@ -8,6 +8,7 @@ const express = require('express');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 const path = require('path');
+const db = require('./config/database'); // Import database connection pool yang sudah bekerja
 
 // Inisialisasi aplikasi Express
 const app = express();
@@ -25,20 +26,13 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🟢 4. Konfigurasi Kredensial MySQL Store (Fix Error 500 Vercel)
-const dbOptions = {
-    host: process.env.DB_HOST,
-    port: process.env.DB_PORT || 3306,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    createDatabaseTable: true,        // 🟢 Otomatis buat tabel 'sessions' di Aiven jika belum ada
+// 🟢 4. Konfigurasi MySQL Session Store Menggunakan Existing Pool (Mencegah Crash 500 Vercel)
+const sessionStore = new MySQLStore({
+    createDatabaseTable: true,        // Otomatis buat tabel 'sessions' di Aiven jika belum ada
     clearExpired: true,
     checkExpirationInterval: 900000,   // Hapus session expired tiap 15 menit
     expiration: 24 * 60 * 60 * 1000    // Masa aktif session 24 jam
-};
-
-const sessionStore = new MySQLStore(dbOptions);
+}, db); // 👈 Memakai instance koneksi 'db' pool yang sudah stabil
 
 // Konfigurasi Session Cookie Stabil & Aman untuk Vercel
 app.use(session({
