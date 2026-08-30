@@ -28,14 +28,10 @@ router.get('/register', (req, res) => {
     res.render('register', { title: 'Pendaftaran Akun Baru' });
 });
 
+// 🟢 Perbaikan Endpoint Logout (Kompatibel dengan cookie-session)
 router.get('/logout', (req, res) => {
-    if (req.session) {
-        req.session.destroy(() => {
-            res.redirect('/login');
-        });
-    } else {
-        res.redirect('/login');
-    }
+    req.session = null; // Menghapus sesi cookie secara aman
+    return res.redirect('/login');
 });
 
 // ==========================================
