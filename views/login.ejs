@@ -44,6 +44,25 @@
             z-index: 30;
         }
 
+        /* 🟢 Styling untuk Efek Kursor Typewriter */
+        .typewriter-desc::after {
+            content: '|';
+            display: inline-block;
+            color: #fca5a5;
+            animation: blink-cursor 0.75s infinite;
+            font-weight: bold;
+            margin-left: 2px;
+        }
+
+        .typewriter-desc.done::after {
+            content: '';
+        }
+
+        @keyframes blink-cursor {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
         @media (min-width: 768px) {
             .split-container:hover .split-panel:not(:hover)::after {
                 opacity: 1;
@@ -94,7 +113,8 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-xs sm:text-sm text-white">Kelola Data Barang</h4>
-                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed">Masukkan daftar produk, kategori, harga, dan stok awal di menu <strong>Data Barang</strong>.</p>
+                            <!-- 🟢 Teks dipindah ke atribut data-text agar bisa dianimasikan -->
+                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed typewriter-desc" data-text="Masukkan daftar produk, kategori, harga, dan stok awal di menu Data Barang."></p>
                         </div>
                     </div>
 
@@ -104,7 +124,7 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-xs sm:text-sm text-white">Transaksi Kasir (Penjualan)</h4>
-                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed">Pilih barang, masukkan jumlah item, pilih metode pembayaran, dan cetak struk belanja.</p>
+                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed typewriter-desc" data-text="Pilih barang, masukkan jumlah item, pilih metode pembayaran, dan cetak struk belanja."></p>
                         </div>
                     </div>
 
@@ -114,7 +134,7 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-xs sm:text-sm text-white">Catat Kas, Utang & Piutang</h4>
-                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed">Pantau arus kas harian serta kelola catatan pelunasan utang & piutang.</p>
+                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed typewriter-desc" data-text="Pantau arus kas harian serta kelola catatan pelunasan utang & piutang."></p>
                         </div>
                     </div>
                 </div>
@@ -231,7 +251,7 @@
                     showToast('Berhasil', 'Login sukses! Mengalihkan ke dashboard...', 'success');
                     setTimeout(() => {
                         window.location.href = '/dashboard';
-                    }, 600);
+                      }, 600);
                 } else {
                     showToast('Gagal Login', result.message || 'Username atau password salah', 'error');
                     btn.disabled = false;
@@ -244,6 +264,30 @@
                 btn.innerHTML = `<span>Login Now</span>`;
             }
         }
+
+        // 🟢 Script JavaScript untuk menjalankan efek Typewriter berurutan
+        document.addEventListener("DOMContentLoaded", function() {
+            const typewriterElements = document.querySelectorAll(".typewriter-desc");
+
+            typewriterElements.forEach((el, cardIndex) => {
+                const textToType = el.getAttribute("data-text");
+                let charIndex = 0;
+                const startDelay = cardIndex * 1500; // Jeda 1.5 detik antar kartu
+
+                setTimeout(() => {
+                    function type() {
+                        if (charIndex < textToType.length) {
+                            el.textContent += textToType.charAt(charIndex);
+                            charIndex++;
+                            setTimeout(type, 25); // Kecepatan mengetik per huruf
+                        } else {
+                            el.classList.add("done"); // Menghilangkan kursor setelah selesai
+                        }
+                    }
+                    type();
+                }, startDelay);
+            });
+        });
     </script>
 </body>
 </html>

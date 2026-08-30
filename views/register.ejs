@@ -47,6 +47,25 @@
             z-index: 30;
         }
 
+        /* 🟢 Styling untuk Efek Kursor Typewriter */
+        .typewriter-desc::after {
+            content: '|';
+            display: inline-block;
+            color: #fca5a5;
+            animation: blink-cursor 0.75s infinite;
+            font-weight: bold;
+            margin-left: 2px;
+        }
+
+        .typewriter-desc.done::after {
+            content: '';
+        }
+
+        @keyframes blink-cursor {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
         @media (min-width: 768px) {
             .split-container:hover .split-panel:not(:hover)::after {
                 opacity: 1;
@@ -103,7 +122,8 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-xs sm:text-sm text-white">Akses Terproteksi</h4>
-                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed">Setiap akun baru akan disesuaikan hak aksesnya untuk menjaga keamanan data toko.</p>
+                            <!-- 🟢 Teks dipindah ke atribut data-text untuk animasi typewriter -->
+                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed typewriter-desc" data-text="Setiap akun baru akan disesuaikan hak aksesnya untuk menjaga keamanan data toko."></p>
                         </div>
                     </div>
 
@@ -113,7 +133,7 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-xs sm:text-sm text-white">Manajemen Real-Time</h4>
-                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed">Sinkronisasi data stok barang dan transaksi kasir langsung aktif secara otomatis.</p>
+                            <p class="text-[11px] sm:text-xs text-rose-100/80 leading-relaxed typewriter-desc" data-text="Sinkronisasi data stok barang dan transaksi kasir langsung aktif secara otomatis."></p>
                         </div>
                     </div>
                 </div>
@@ -270,6 +290,30 @@
                 btn.innerHTML = `<span>Register Now</span>`;
             }
         }
+
+        // 🟢 Script JavaScript untuk menjalankan efek Typewriter berurutan pada halaman Register
+        document.addEventListener("DOMContentLoaded", function() {
+            const typewriterElements = document.querySelectorAll(".typewriter-desc");
+
+            typewriterElements.forEach((el, cardIndex) => {
+                const textToType = el.getAttribute("data-text");
+                let charIndex = 0;
+                const startDelay = cardIndex * 1500; // Jeda 1.5 detik antar kartu
+
+                setTimeout(() => {
+                    function type() {
+                        if (charIndex < textToType.length) {
+                            el.textContent += textToType.charAt(charIndex);
+                            charIndex++;
+                            setTimeout(type, 25); // Kecepatan mengetik per huruf
+                        } else {
+                            el.classList.add("done"); // Menghilangkan kursor setelah selesai
+                        }
+                    }
+                    type();
+                }, startDelay);
+            });
+        });
     </script>
 </body>
 </html>
