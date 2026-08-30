@@ -63,10 +63,15 @@ router.put('/auth/update-profile', requireAuthApi, async (req, res) => {
         await db.query('UPDATE users SET name = ? WHERE id = ?', [name.trim(), userId]);
         req.session.user.name = name.trim();
 
-        return res.json({ 
-            success: true, 
-            message: 'Nama profil berhasil diperbarui!',
-            name: req.session.user.name 
+        req.session.save((err) => {
+            if (err) {
+                console.error('Error saving session on profile update:', err);
+            }
+            return res.json({ 
+                success: true, 
+                message: 'Nama profil berhasil diperbarui!',
+                name: req.session.user.name 
+            });
         });
     } catch (error) {
         console.error('Error update profile:', error);
@@ -129,7 +134,7 @@ router.post('/register', async (req, res) => {
 
         const [existingUsers] = await db.query(
             'SELECT id FROM users WHERE username = ? LIMIT 1',
-            [username.trim()]
+            [String(username).trim()]
         );
 
         if (existingUsers && existingUsers.length > 0) {
@@ -139,11 +144,11 @@ router.post('/register', async (req, res) => {
             });
         }
 
-        const hashedPassword = await bcrypt.hash(password.trim(), 10);
+        const hashedPassword = await bcrypt.hash(String(password).trim(), 10);
 
         await db.query(
             'INSERT INTO users (name, username, password, role) VALUES (?, ?, ?, ?)',
-            [fullname.trim(), username.trim(), hashedPassword, 'kasir']
+            [String(fullname).trim(), String(username).trim(), hashedPassword, 'kasir']
         );
 
         return res.status(200).json({ 
@@ -160,6 +165,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
+// 🟢 POST Handler Login User / Kasir (Fixed Anti-Crash & Explicit Session Save)
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -171,9 +177,12 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        const cleanUsername = String(username).trim();
+        const cleanPassword = String(password).trim();
+
         const [users] = await db.query(
             'SELECT * FROM users WHERE username = ? LIMIT 1', 
-            [username]
+            [cleanUsername]
         );
 
         if (!users || users.length === 0) {
@@ -186,14 +195,17 @@ router.post('/login', async (req, res) => {
         const user = users[0];
         let isMatch = false;
 
-        if (user.password && (user.password.startsWith('$2a$') || user.password.startsWith('$2b$'))) {
-            try {
-                isMatch = await bcrypt.compare(password, user.password);
-            } catch (bcryptErr) {
-                isMatch = (password.trim() === user.password.trim());
+        if (user.password) {
+            const dbPassword = String(user.password).trim();
+            if (dbPassword.startsWith('$2a$') || dbPassword.startsWith('$2b$') || dbPassword.startsWith('$2y$')) {
+                try {
+                    isMatch = await bcrypt.compare(cleanPassword, dbPassword);
+                } catch (bcryptErr) {
+                    isMatch = (cleanPassword === dbPassword);
+                }
+            } else {
+                isMatch = (cleanPassword === dbPassword);
             }
-        } else {
-            isMatch = (password.trim() === String(user.password).trim());
         }
 
         if (!isMatch) {
@@ -210,10 +222,20 @@ router.post('/login', async (req, res) => {
             role: user.role || 'kasir'
         };
 
-        return res.json({ 
-            success: true, 
-            message: 'Login berhasil!',
-            user: req.session.user 
+        // Simpan sesi secara eksplisit sebelum mengirim respons JSON di Vercel
+        req.session.save((err) => {
+            if (err) {
+                console.error('Session save error:', err);
+                return res.status(500).json({ 
+                    success: false, 
+                    message: 'Gagal menyimpan sesi login: ' + err.message 
+                });
+            }
+            return res.json({ 
+                success: true, 
+                message: 'Login berhasil!',
+                user: req.session.user 
+            });
         });
 
     } catch (error) {
@@ -231,7 +253,7 @@ router.post('/logout', (req, res) => {
             if (err) {
                 return res.status(500).json({ success: false, message: 'Gagal mengakhiri sesi.' });
             }
-            res.clearCookie('connect.sid');
+            res.clearCookie('sikios_session');
             return res.json({ success: true, message: 'Berhasil keluar.' });
         });
     } else {
