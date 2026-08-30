@@ -61,17 +61,12 @@ router.put('/auth/update-profile', requireAuthApi, async (req, res) => {
         }
 
         await db.query('UPDATE users SET name = ? WHERE id = ?', [name.trim(), userId]);
-        req.session.user.name = name.trim();
+        req.session.user.name = name.trim(); // Langsung tersimpan otomatis di cookie-session
 
-        req.session.save((err) => {
-            if (err) {
-                console.error('Error saving session on profile update:', err);
-            }
-            return res.json({ 
-                success: true, 
-                message: 'Nama profil berhasil diperbarui!',
-                name: req.session.user.name 
-            });
+        return res.json({ 
+            success: true, 
+            message: 'Nama profil berhasil diperbarui!',
+            name: req.session.user.name 
         });
     } catch (error) {
         console.error('Error update profile:', error);
@@ -165,7 +160,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// 🟢 POST Handler Login User (Fixed Session Save & Stability)
+// 🟢 POST Handler Login User (Menggunakan Cookie-Session)
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -215,7 +210,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // Pasang Sesi Pengguna
+        // 🟢 Simpan Sesi Langsung ke Cookie-Session (Otomatis Terenkripsi di Browser)
         req.session.user = {
             id: user.id,
             username: user.username,
@@ -223,20 +218,10 @@ router.post('/login', async (req, res) => {
             role: user.role || 'kasir'
         };
 
-        // Simpan sesi secara eksplisit agar cookie terkirim sempurna ke browser
-        req.session.save((err) => {
-            if (err) {
-                console.error('Session save error:', err);
-                return res.status(500).json({ 
-                    success: false, 
-                    message: 'Gagal menyimpan sesi: ' + err.message 
-                });
-            }
-            return res.json({ 
-                success: true, 
-                message: 'Login berhasil!',
-                user: req.session.user 
-            });
+        return res.json({ 
+            success: true, 
+            message: 'Login berhasil!',
+            user: req.session.user 
         });
 
     } catch (error) {
@@ -249,17 +234,8 @@ router.post('/login', async (req, res) => {
 });
 
 router.post('/logout', (req, res) => {
-    if (req.session) {
-        req.session.destroy((err) => {
-            if (err) {
-                return res.status(500).json({ success: false, message: 'Gagal mengakhiri sesi.' });
-            }
-            res.clearCookie('connect.sid');
-            return res.json({ success: true, message: 'Berhasil keluar.' });
-        });
-    } else {
-        return res.json({ success: true, message: 'Sesi sudah berakhir.' });
-    }
+    req.session = null; // 🟢 Menghapus cookie session secara aman di cookie-session
+    return res.json({ success: true, message: 'Berhasil keluar.' });
 });
 
 // ==========================================
