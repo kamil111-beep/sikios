@@ -8,7 +8,6 @@ const express = require('express');
 const session = require('express-session');
 const MySQLStore = require('express-mysql-session')(session);
 const path = require('path');
-const db = require('./config/database'); // Import database connection pool
 
 // Inisialisasi aplikasi Express
 const app = express();
@@ -26,26 +25,33 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🟢 4. Konfigurasi MySQL Session Store (Otomatis Buat Tabel 'sessions' di Aiven)
-const sessionStore = new MySQLStore({
-    createDatabaseTable: true,        // 🟢 Otomatis buat tabel 'sessions' di MySQL jika belum ada
+// 🟢 4. Konfigurasi Kredensial MySQL Store (Fix Error 500 Vercel)
+const dbOptions = {
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT || 3306,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    createDatabaseTable: true,        // 🟢 Otomatis buat tabel 'sessions' di Aiven jika belum ada
     clearExpired: true,
     checkExpirationInterval: 900000,   // Hapus session expired tiap 15 menit
     expiration: 24 * 60 * 60 * 1000    // Masa aktif session 24 jam
-}, db);
+};
+
+const sessionStore = new MySQLStore(dbOptions);
 
 // Konfigurasi Session Cookie Stabil & Aman untuk Vercel
 app.use(session({
     key: 'sikios_session',
     secret: process.env.SESSION_SECRET || 'sikios_secret_key_12345',
-    store: sessionStore,               // 🟢 Simpan session ke DB MySQL agar tidak hilang saat Vercel Cold Start
+    store: sessionStore,               // 🟢 Simpan session ke DB MySQL Aiven
     resave: false,
     saveUninitialized: false,
     proxy: true,
     cookie: { 
-        secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1', // True jika di Vercel / Production HTTPS
+        secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1', // True jika di Vercel (HTTPS)
         httpOnly: true,                // Mencegah akses cookie via Javascript client
-        sameSite: 'lax',               // 🟢 Tetap dikirim saat navigasi redirect halaman di Vercel
+        sameSite: 'lax',               // 🟢 Tetap dikirim saat navigasi/redirect di Vercel
         maxAge: 24 * 60 * 60 * 1000    // Session aktif 24 jam
     }
 }));
