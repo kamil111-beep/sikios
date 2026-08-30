@@ -277,7 +277,6 @@
                 <form onsubmit="updateProfileName(event)" class="space-y-2.5">
                     <div>
                         <label class="block text-xs text-slate-500 font-semibold mb-1">Nama Lengkap Baru</label>
-                        <!-- Menggunakan text-base di mobile (sm:text-xs) untuk mencegah auto-zoom browser HP -->
                         <input type="text" id="newNameInput" class="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-base sm:text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]" required>
                     </div>
                     <button type="submit" class="bg-[#800020] text-white text-xs font-bold px-4 py-2.5 rounded-xl hover:bg-red-900 transition w-full cursor-pointer shadow-sm">
@@ -377,7 +376,7 @@
                 if (data.success) {
                     alert(data.message);
                     closeProfileModal();
-                    fetchCurrentUser(); // Update otomatis tampilan nama di sidebar
+                    fetchCurrentUser();
                 } else {
                     alert(data.message);
                 }
@@ -412,7 +411,7 @@
             }
         }
 
-        // --- DATA ENGINE & DASHBOARD LOGIC ---
+        // --- DATA ENGINE & DASHBOARD LOGIC (WIB UTC+7 FIXED) ---
         async function fetchCurrentUser() {
             try {
                 const res = await fetch('/api/auth/me');
@@ -432,6 +431,12 @@
             }
         }
 
+        // Helper Konversi Tanggal ke WIB (UTC+7)
+        function getWibDateString(dateObj = new Date()) {
+            const wibDate = new Date(dateObj.getTime() + (7 * 60 * 60 * 1000));
+            return wibDate.toISOString().split('T')[0];
+        }
+
         async function initDashboard() {
             try {
                 const salesRes = await fetch('/api/sales');
@@ -442,9 +447,11 @@
                 renderActivities(rawSalesData.slice(0, 5));
                 loadCriticalProducts();
 
+                // Pembacaan Saldo Kas Toko Kumulatif Real-time
                 const cashRes = await fetch('/api/cash-flow');
                 const cashData = await cashRes.json();
-                document.getElementById('stat-cash').innerText = `Rp ${parseFloat(cashData.balance || 0).toLocaleString('id-ID')}`;
+                const cashVal = parseFloat(cashData.balance || cashData.total_amount || 0);
+                document.getElementById('stat-cash').innerText = `Rp ${cashVal.toLocaleString('id-ID')}`;
 
                 const recRes = await fetch('/api/receivables');
                 const recData = await recRes.json();
@@ -464,18 +471,30 @@
         }
 
         function calculateSalesByMode() {
-            const todayStr = new Date().toISOString().split('T')[0];
-            const currentMonthStr = todayStr.substring(0, 7);
+            // 🟢 Tanggal WIB Hari Ini
+            const todayWibStr = getWibDateString();
+            const currentMonthWibStr = todayWibStr.substring(0, 7);
             let totalSalesSum = 0;
 
             rawSalesData.forEach(s => {
-                const sDate = (s.transaction_date || s.created_at || s.date || '').split('T')[0];
+                const rawDateStr = s.transaction_date || s.created_at || s.date || '';
+                if (!rawDateStr) return;
+
+                // Konversi tanggal transaksi ke string YYYY-MM-DD berbasis WIB
+                let sDate = '';
+                if (typeof rawDateStr === 'string' && rawDateStr.includes('T')) {
+                    const parsedDate = new Date(rawDateStr);
+                    sDate = parsedDate.toISOString().split('T')[0];
+                } else {
+                    sDate = String(rawDateStr).split(' ')[0].trim();
+                }
+
                 const total = parseFloat(s.total_amount || s.total || 0);
 
                 if (currentMode === 'daily') {
-                    if (sDate === todayStr) totalSalesSum += total;
+                    if (sDate === todayWibStr) totalSalesSum += total;
                 } else {
-                    if (sDate.startsWith(currentMonthStr)) totalSalesSum += total;
+                    if (sDate.startsWith(currentMonthWibStr)) totalSalesSum += total;
                 }
             });
 
