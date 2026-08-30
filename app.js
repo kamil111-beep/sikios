@@ -26,26 +26,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🟢 4. Konfigurasi MySQL Session Store (Persistent Session di Vercel)
+// 🟢 4. Konfigurasi MySQL Session Store (Otomatis Buat Tabel 'sessions' di Aiven)
 const sessionStore = new MySQLStore({
+    createDatabaseTable: true,        // 🟢 Otomatis buat tabel 'sessions' di MySQL jika belum ada
     clearExpired: true,
-    checkExpirationInterval: 900000, // Hapus session expired tiap 15 menit
-    expiration: 24 * 60 * 60 * 1000  // Masa aktif session 24 jam
+    checkExpirationInterval: 900000,   // Hapus session expired tiap 15 menit
+    expiration: 24 * 60 * 60 * 1000    // Masa aktif session 24 jam
 }, db);
 
 // Konfigurasi Session Cookie Stabil & Aman untuk Vercel
 app.use(session({
     key: 'sikios_session',
     secret: process.env.SESSION_SECRET || 'sikios_secret_key_12345',
-    store: sessionStore, // 🟢 Simpan session ke DB MySQL agar tidak hilang saat Vercel Cold Start
+    store: sessionStore,               // 🟢 Simpan session ke DB MySQL agar tidak hilang saat Vercel Cold Start
     resave: false,
     saveUninitialized: false,
     proxy: true,
     cookie: { 
         secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1', // True jika di Vercel / Production HTTPS
-        httpOnly: true,             // Mencegah akses cookie via Javascript client
-        sameSite: 'lax',             // 🟢 UBAH KE 'lax' agar cookie tetap dikirim saat navigasi redirect halaman di Vercel
-        maxAge: 24 * 60 * 60 * 1000  // Session aktif 24 jam
+        httpOnly: true,                // Mencegah akses cookie via Javascript client
+        sameSite: 'lax',               // 🟢 Tetap dikirim saat navigasi redirect halaman di Vercel
+        maxAge: 24 * 60 * 60 * 1000    // Session aktif 24 jam
     }
 }));
 
