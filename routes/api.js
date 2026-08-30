@@ -165,7 +165,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// 🟢 POST Handler Login User / Kasir (Fixed Anti-Crash & Explicit Session Save)
+// 🟢 POST Handler Login User (Debug Mode - Menampilkan Error Spesifik jika Crash)
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -180,6 +180,7 @@ router.post('/login', async (req, res) => {
         const cleanUsername = String(username).trim();
         const cleanPassword = String(password).trim();
 
+        // 1. Kueri User dari Database
         const [users] = await db.query(
             'SELECT * FROM users WHERE username = ? LIMIT 1', 
             [cleanUsername]
@@ -195,6 +196,7 @@ router.post('/login', async (req, res) => {
         const user = users[0];
         let isMatch = false;
 
+        // 2. Evaluasi Hash Password
         if (user.password) {
             const dbPassword = String(user.password).trim();
             if (dbPassword.startsWith('$2a$') || dbPassword.startsWith('$2b$') || dbPassword.startsWith('$2y$')) {
@@ -215,6 +217,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
+        // 3. Pasang Sesi Pengguna
         req.session.user = {
             id: user.id,
             username: user.username,
@@ -222,13 +225,13 @@ router.post('/login', async (req, res) => {
             role: user.role || 'kasir'
         };
 
-        // Simpan sesi secara eksplisit sebelum mengirim respons JSON di Vercel
+        // 4. Simpan Sesi Eksplisit
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
                 return res.status(500).json({ 
                     success: false, 
-                    message: 'Gagal menyimpan sesi login: ' + err.message 
+                    message: 'Gagal menyimpan sesi: ' + err.message 
                 });
             }
             return res.json({ 
@@ -240,9 +243,10 @@ router.post('/login', async (req, res) => {
 
     } catch (error) {
         console.error('Error pada API Login:', error);
+        // Menampilkan Stack Trace Lengkap Jika Terjadi Error di Vercel/Database
         return res.status(500).json({ 
             success: false, 
-            message: 'Terjadi kesalahan sistem saat proses login: ' + error.message 
+            message: 'Detail Error: ' + (error.stack || error.message)
         });
     }
 });
