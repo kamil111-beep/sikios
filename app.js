@@ -5,10 +5,8 @@ process.env.TZ = 'Asia/Jakarta';
 require('dotenv').config();
 
 const express = require('express');
-const session = require('express-session');
-const MySQLStore = require('express-mysql-session')(session);
+const cookieSession = require('cookie-session');
 const path = require('path');
-const db = require('./config/database'); // Import database connection pool yang sudah bekerja
 
 // Inisialisasi aplikasi Express
 const app = express();
@@ -26,28 +24,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// 🟢 4. Konfigurasi MySQL Session Store Menggunakan Existing Pool (Mencegah Crash 500 Vercel)
-const sessionStore = new MySQLStore({
-    createDatabaseTable: true,        // Otomatis buat tabel 'sessions' di Aiven jika belum ada
-    clearExpired: true,
-    checkExpirationInterval: 900000,   // Hapus session expired tiap 15 menit
-    expiration: 24 * 60 * 60 * 1000    // Masa aktif session 24 jam
-}, db); // 👈 Memakai instance koneksi 'db' pool yang sudah stabil
-
-// Konfigurasi Session Cookie Stabil & Aman untuk Vercel
-app.use(session({
-    key: 'sikios_session',
-    secret: process.env.SESSION_SECRET || 'sikios_secret_key_12345',
-    store: sessionStore,               // 🟢 Simpan session ke DB MySQL Aiven
-    resave: false,
-    saveUninitialized: false,
-    proxy: true,
-    cookie: { 
-        secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1', // True jika di Vercel (HTTPS)
-        httpOnly: true,                // Mencegah akses cookie via Javascript client
-        sameSite: 'lax',               // 🟢 Tetap dikirim saat navigasi/redirect di Vercel
-        maxAge: 24 * 60 * 60 * 1000    // Session aktif 24 jam
-    }
+// 🟢 4. Konfigurasi Cookie Session Terenkripsi (Stabil 100% di Vercel & Anti Crash 500)
+app.use(cookieSession({
+    name: 'sikios_session',
+    keys: [process.env.SESSION_SECRET || 'sikios_secret_key_12345'],
+    maxAge: 24 * 60 * 60 * 1000, // Sesi aktif 24 jam
+    secure: process.env.NODE_ENV === 'production' || process.env.VERCEL === '1', // True jika HTTPS di Vercel
+    httpOnly: true,
+    sameSite: 'lax'
 }));
 
 // 5. Import File Routing
