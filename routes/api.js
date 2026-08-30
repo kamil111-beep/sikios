@@ -165,7 +165,7 @@ router.post('/register', async (req, res) => {
     }
 });
 
-// 🟢 POST Handler Login User (Debug Mode - Menampilkan Error Spesifik jika Crash)
+// 🟢 POST Handler Login User (Fixed Session Save & Stability)
 router.post('/login', async (req, res) => {
     try {
         const { username, password } = req.body;
@@ -180,7 +180,6 @@ router.post('/login', async (req, res) => {
         const cleanUsername = String(username).trim();
         const cleanPassword = String(password).trim();
 
-        // 1. Kueri User dari Database
         const [users] = await db.query(
             'SELECT * FROM users WHERE username = ? LIMIT 1', 
             [cleanUsername]
@@ -196,7 +195,6 @@ router.post('/login', async (req, res) => {
         const user = users[0];
         let isMatch = false;
 
-        // 2. Evaluasi Hash Password
         if (user.password) {
             const dbPassword = String(user.password).trim();
             if (dbPassword.startsWith('$2a$') || dbPassword.startsWith('$2b$') || dbPassword.startsWith('$2y$')) {
@@ -217,7 +215,7 @@ router.post('/login', async (req, res) => {
             });
         }
 
-        // 3. Pasang Sesi Pengguna
+        // Pasang Sesi Pengguna
         req.session.user = {
             id: user.id,
             username: user.username,
@@ -225,7 +223,7 @@ router.post('/login', async (req, res) => {
             role: user.role || 'kasir'
         };
 
-        // 4. Simpan Sesi Eksplisit
+        // Simpan sesi secara eksplisit agar cookie terkirim sempurna ke browser
         req.session.save((err) => {
             if (err) {
                 console.error('Session save error:', err);
@@ -243,10 +241,9 @@ router.post('/login', async (req, res) => {
 
     } catch (error) {
         console.error('Error pada API Login:', error);
-        // Menampilkan Stack Trace Lengkap Jika Terjadi Error di Vercel/Database
         return res.status(500).json({ 
             success: false, 
-            message: 'Detail Error: ' + (error.stack || error.message)
+            message: 'Terjadi kesalahan sistem saat proses login: ' + error.message 
         });
     }
 });
@@ -257,7 +254,7 @@ router.post('/logout', (req, res) => {
             if (err) {
                 return res.status(500).json({ success: false, message: 'Gagal mengakhiri sesi.' });
             }
-            res.clearCookie('sikios_session');
+            res.clearCookie('connect.sid');
             return res.json({ success: true, message: 'Berhasil keluar.' });
         });
     } else {
