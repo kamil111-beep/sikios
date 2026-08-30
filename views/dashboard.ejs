@@ -411,10 +411,11 @@
             }
         }
 
-        // --- DATA ENGINE & DASHBOARD LOGIC (WIB UTC+7 FIXED) ---
+        // --- DATA ENGINE & DASHBOARD LOGIC (ANTI CACHE & WIB TIMEZONE FIX) ---
         async function fetchCurrentUser() {
             try {
-                const res = await fetch('/api/auth/me');
+                // 🟢 Anti-Cache Timestamp Parameter
+                const res = await fetch(`/api/auth/me?t=${Date.now()}`);
                 const data = await res.json();
                 if (data && data.name) {
                     const initials = data.name.substring(0, 2).toUpperCase();
@@ -431,15 +432,19 @@
             }
         }
 
-        // Helper Konversi Tanggal ke WIB (UTC+7)
+        // Helper Konversi Waktu Lokal ke Tanggal WIB (UTC+7)
         function getWibDateString(dateObj = new Date()) {
-            const wibDate = new Date(dateObj.getTime() + (7 * 60 * 60 * 1000));
-            return wibDate.toISOString().split('T')[0];
+            const localTime = dateObj.getTime();
+            const localOffset = dateObj.getTimezoneOffset() * 60000;
+            const utc = localTime + localOffset;
+            const wib = new Date(utc + (3600000 * 7));
+            return wib.toISOString().split('T')[0];
         }
 
         async function initDashboard() {
             try {
-                const salesRes = await fetch('/api/sales');
+                // 🟢 Tambahkan Parameter ?t=${Date.now()} di Seluruh Fetch untuk Menghentikan HTTP 304 Cache
+                const salesRes = await fetch(`/api/sales?t=${Date.now()}`);
                 const salesData = await salesRes.json();
                 rawSalesData = Array.isArray(salesData) ? salesData : (salesData.data || salesData.sales || []);
 
@@ -447,19 +452,21 @@
                 renderActivities(rawSalesData.slice(0, 5));
                 loadCriticalProducts();
 
-                // Pembacaan Saldo Kas Toko Kumulatif Real-time
-                const cashRes = await fetch('/api/cash-flow');
+                // Fetch Saldo Kas Toko (Anti Cache)
+                const cashRes = await fetch(`/api/cash-flow?t=${Date.now()}`);
                 const cashData = await cashRes.json();
                 const cashVal = parseFloat(cashData.balance || cashData.total_amount || 0);
                 document.getElementById('stat-cash').innerText = `Rp ${cashVal.toLocaleString('id-ID')}`;
 
-                const recRes = await fetch('/api/receivables');
+                // Fetch Piutang Pelanggan (Anti Cache)
+                const recRes = await fetch(`/api/receivables?t=${Date.now()}`);
                 const recData = await recRes.json();
                 let totalRec = 0;
                 (recData.data || []).forEach(r => totalRec += parseFloat(r.remaining_amount || 0));
                 document.getElementById('stat-receivable').innerText = `Rp ${totalRec.toLocaleString('id-ID')}`;
 
-                const debtRes = await fetch('/api/debts');
+                // Fetch Hutang Supplier (Anti Cache)
+                const debtRes = await fetch(`/api/debts?t=${Date.now()}`);
                 const debtData = await debtRes.json();
                 let totalDebt = 0;
                 (debtData.data || []).forEach(d => totalDebt += parseFloat(d.remaining_amount || 0));
@@ -471,7 +478,6 @@
         }
 
         function calculateSalesByMode() {
-            // 🟢 Tanggal WIB Hari Ini
             const todayWibStr = getWibDateString();
             const currentMonthWibStr = todayWibStr.substring(0, 7);
             let totalSalesSum = 0;
@@ -480,7 +486,6 @@
                 const rawDateStr = s.transaction_date || s.created_at || s.date || '';
                 if (!rawDateStr) return;
 
-                // Konversi tanggal transaksi ke string YYYY-MM-DD berbasis WIB
                 let sDate = '';
                 if (typeof rawDateStr === 'string' && rawDateStr.includes('T')) {
                     const parsedDate = new Date(rawDateStr);
@@ -529,7 +534,8 @@
             const tbody = document.getElementById('critical-products-body');
             const badge = document.getElementById('critical-count-badge');
             try {
-                const res = await fetch('/api/products');
+                // 🟢 Anti-Cache Timestamp Parameter
+                const res = await fetch(`/api/products?t=${Date.now()}`);
                 const data = await res.json();
                 const critical = (data.data || data || []).filter(p => parseInt(p.stock || 0) <= 5);
 
